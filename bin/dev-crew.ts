@@ -1,9 +1,12 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --no-warnings
 
 import { Command } from 'commander';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const pkg = require('../package.json');
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
 import { initCommand } from '../src/commands/init.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { reviewCommand } from '../src/commands/review.js';
@@ -50,12 +53,161 @@ import { buildCommand } from '../src/commands/build.js';
 import { deployCommand } from '../src/commands/deploy.js';
 import { interactiveCommand } from '../src/commands/interactive.js';
 
+// ---------------------------------------------------------------------------
+// ANSI helpers
+// ---------------------------------------------------------------------------
+const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
+const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const magenta = (s: string) => `\x1b[35m${s}\x1b[0m`;
+const blue = (s: string) => `\x1b[34m${s}\x1b[0m`;
+const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const white = (s: string) => `\x1b[97m${s}\x1b[0m`;
+
+// ---------------------------------------------------------------------------
+// Custom help
+// ---------------------------------------------------------------------------
+function showBrandedHelp() {
+  const v = pkg.version;
+  console.log();
+  console.log(cyan('  ____              _____'));
+  console.log(cyan(' |  _ \\  _____   __/ ____|_ __ _____      __'));
+  console.log(cyan(' | | | |/ _ \\ \\ / / |   | \'__/ _ \\ \\ /\\ / /'));
+  console.log(cyan(' | |_| |  __/\\ V /| |___| | |  __/\\ V  V /'));
+  console.log(cyan(' |____/ \\___| \\_/  \\_____|_|  \\___| \\_/\\_/'));
+  console.log();
+  console.log(`  ${bold('Dev-Crew')} ${dim(`v${v}`)}  ${dim('—')} Your AI-Powered Developer Team`);
+  console.log(`  ${dim('by Prince Vasoya')}`);
+  console.log();
+  console.log(`  ${bold('Usage:')} dev-crew ${dim('<command>')} ${dim('[options]')}`);
+  console.log();
+
+  // ── Getting Started ──
+  printSection(green('Getting Started'), [
+    ['init', 'Initialize Dev-Crew in your project'],
+    ['doctor', 'Check setup and system requirements'],
+    ['interactive, i', 'Interactive REPL mode'],
+  ]);
+
+  // ── Core Agents ──
+  printSection(cyan('Core Agents'), [
+    ['review [path]', 'Code review with project-aware rules'],
+    ['fix <file>', 'Suggest and apply code fixes'],
+    ['debug <input>', 'Root cause analysis from logs/errors'],
+    ['test <file>', 'Generate unit/integration/e2e tests'],
+    ['ask <question>', 'Ask anything about your codebase'],
+    ['explain <file>', 'Detailed code explanation'],
+  ]);
+
+  // ── Advanced Agents ──
+  printSection(yellow('Advanced Agents'), [
+    ['tech-lead [question]', 'Architecture decisions and guidance'],
+    ['ba <requirement>', 'Requirements to technical specs'],
+    ['cto review', 'Strategic technical review'],
+    ['pr review', 'Automated pull request review'],
+    ['security [path]', 'OWASP security audit'],
+    ['designer api|schema', 'API and schema design review'],
+  ]);
+
+  // ── DevOps & Infrastructure ──
+  printSection(magenta('DevOps & Infrastructure'), [
+    ['devops [question]', 'Docker, CI/CD, Terraform, K8s'],
+    ['deploy [question]', 'Deployment strategy'],
+    ['cost-optimizer [question]', 'Cloud cost analysis'],
+    ['monitoring [question]', 'Observability and alerting'],
+  ]);
+
+  // ── Full-Stack & Database ──
+  printSection(blue('Full-Stack & Database'), [
+    ['scaffold <description>', 'Scaffold a new project'],
+    ['build <description>', 'Build a feature into your project'],
+    ['db-architect [input]', 'Schema design & query optimization'],
+    ['api-architect [input]', 'API design review'],
+  ]);
+
+  // ── Mobile ──
+  printSection(red('Mobile Development'), [
+    ['flutter [input]', 'Flutter/Dart review'],
+    ['react-native [input]', 'React Native review'],
+    ['ios [input]', 'iOS/Swift review'],
+    ['android [input]', 'Android/Kotlin review'],
+  ]);
+
+  // ── Quality ──
+  printSection(green('Quality & Performance'), [
+    ['performance [path]', 'Performance audit'],
+    ['accessibility [path]', 'WCAG compliance audit'],
+  ]);
+
+  // ── Smart Features ──
+  printSection(cyan('Smart Features'), [
+    ['onboard', 'Onboarding guide for new devs'],
+    ['watch [path]', 'Watch files & auto-review changes'],
+    ['impact <file>', 'Change impact analysis'],
+    ['resolve', 'AI-assisted merge conflict resolution'],
+    ['feature <description>', 'Full pipeline: BA → Tech Lead → Security → Tests'],
+    ['refactor-plan <path>', 'Prioritized refactoring plan'],
+  ]);
+
+  // ── Code Health ──
+  printSection(yellow('Code Health'), [
+    ['debt report|scan', 'Technical debt tracker'],
+    ['deps health', 'Dependency health scanner'],
+    ['migration-check <path>', 'Database migration safety check'],
+  ]);
+
+  // ── Analytics ──
+  printSection(magenta('Analytics & Tokens'), [
+    ['tokens estimate|usage', 'Token management & cost tracking'],
+    ['analytics', 'Developer analytics & trends'],
+    ['sprint-report', 'Sprint summary report'],
+    ['stats', 'npm download stats'],
+  ]);
+
+  // ── Configuration ──
+  printSection(dim('Configuration'), [
+    ['agents list', 'List all 24 agents'],
+    ['config show|set|get', 'Manage configuration'],
+    ['feedback <agent> <msg>', 'Teach agents your preferences'],
+    ['patterns', 'View learned patterns'],
+  ]);
+
+  console.log();
+  console.log(`  ${dim('Run')} dev-crew ${white('<command>')} --help ${dim('for detailed usage')}`);
+  console.log(`  ${dim('Docs:')} ${cyan('https://github.com/vasoyaprince14/dev-crew')}`);
+  console.log();
+}
+
+function printSection(title: string, commands: [string, string][]) {
+  console.log(`  ${bold(title)}`);
+  for (const [cmd, desc] of commands) {
+    const paddedCmd = cmd.padEnd(28);
+    console.log(`    ${white(paddedCmd)} ${dim(desc)}`);
+  }
+  console.log();
+}
+
+// ---------------------------------------------------------------------------
+// Program setup
+// ---------------------------------------------------------------------------
 const program = new Command();
 
 program
   .name('dev-crew')
   .description('AI-powered developer crew built by Prince Vasoya')
-  .version(pkg.version);
+  .version(pkg.version)
+  .configureHelp({ showGlobalOptions: false })
+  .helpOption('-h, --help', 'Display help')
+  .addHelpCommand(false);
+
+// Override default help to show branded version
+program.helpInformation = () => '';
+program.on('--help', () => {}); // suppress default
+program.action(() => {
+  showBrandedHelp();
+});
 
 // ===== SETUP =====
 program
@@ -333,17 +485,26 @@ program
       }).on('error', reject);
     });
     try {
-      const [day, week, month] = await Promise.all([
+      const [day, week, month, total] = await Promise.all([
         get('https://api.npmjs.org/downloads/point/last-day/dev-crew').then(d => JSON.parse(d).downloads || 0),
         get('https://api.npmjs.org/downloads/point/last-week/dev-crew').then(d => JSON.parse(d).downloads || 0),
         get('https://api.npmjs.org/downloads/point/last-month/dev-crew').then(d => JSON.parse(d).downloads || 0),
+        get('https://api.npmjs.org/downloads/range/2024-01-01:2030-12-31/dev-crew').then(d => {
+          const days = JSON.parse(d).downloads || [];
+          return Array.isArray(days) ? days.reduce((s: number, e: { downloads: number }) => s + e.downloads, 0) : 0;
+        }),
       ]);
-      console.log('\n  \x1b[1m\x1b[96mDev-Crew npm Stats\x1b[0m');
-      console.log('  \x1b[90m' + '─'.repeat(30) + '\x1b[0m');
-      console.log(`  Yesterday:     \x1b[1m${day}\x1b[0m downloads`);
-      console.log(`  Last 7 days:   \x1b[1m${week}\x1b[0m downloads`);
-      console.log(`  Last 30 days:  \x1b[1m${month}\x1b[0m downloads`);
-      console.log(`\n  \x1b[90mhttps://www.npmjs.com/package/dev-crew\x1b[0m\n`);
+      console.log();
+      console.log(`  ${bold(cyan('Dev-Crew npm Stats'))}`);
+      console.log(`  ${dim('─'.repeat(32))}`);
+      console.log(`  Yesterday:     ${bold(String(day))} downloads`);
+      console.log(`  Last 7 days:   ${bold(String(week))} downloads`);
+      console.log(`  Last 30 days:  ${bold(String(month))} downloads`);
+      console.log(`  All time:      ${bold(String(total))} downloads`);
+      console.log(`  Version:       ${bold(pkg.version)} ${dim(`(${pkg.name})`)}`);
+      console.log();
+      console.log(`  ${dim('https://www.npmjs.com/package/dev-crew')}`);
+      console.log();
     } catch {
       console.error('Failed to fetch stats. Check your internet connection.');
     }

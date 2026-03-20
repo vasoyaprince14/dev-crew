@@ -205,53 +205,61 @@ function formatGenericResponse(raw: string): void {
 // File path completer
 // ---------------------------------------------------------------------------
 
+function completeFilePath(partial: string): string[] {
+  try {
+    const raw = partial.startsWith('@') ? partial.slice(1) : partial;
+    const dir = raw.includes('/') ? path.dirname(raw) : '.';
+    const prefix = raw.includes('/') ? path.basename(raw) : raw;
+    const atPrefix = partial.startsWith('@') ? '@' : '';
+
+    if (!fs.existsSync(dir)) return [];
+
+    const entries = fs.readdirSync(dir);
+    return entries
+      .filter(e => e.startsWith(prefix))
+      .filter(e => !e.startsWith('.') && e !== 'node_modules' && e !== 'dist')
+      .map(e => {
+        const full = dir === '.' ? e : `${dir}/${e}`;
+        const isDir = fs.statSync(full).isDirectory();
+        return `${atPrefix}${isDir ? `${full}/` : full}`;
+      });
+  } catch {
+    return [];
+  }
+}
+
 function buildCompleter(knownAgentIds: string[]) {
-  const slashCmds = ['/help', '/agents', '/providers', '/project', '/test', '/quit'];
+  const slashCmds = ['/help', '/agents', '/providers', '/project', '/test', '/clear', '/quit'];
 
   return function completer(line: string): [string[], string] {
     const trimmed = line.trim();
 
-    // Slash commands
+    // Slash commands: / triggers command list
     if (trimmed.startsWith('/')) {
       const hits = slashCmds.filter(c => c.startsWith(trimmed));
       return [hits.length ? hits : slashCmds, trimmed];
     }
 
-    // Agent names at the beginning
     const words = trimmed.split(/\s+/);
+    const lastWord = words[words.length - 1] || '';
+
+    // @file tagging: @ triggers file path completion
+    if (lastWord.startsWith('@')) {
+      const matches = completeFilePath(lastWord);
+      if (matches.length > 0) return [matches, lastWord];
+      return [[], lastWord];
+    }
+
+    // Agent names at the beginning (first word)
     if (words.length === 1) {
       const hits = knownAgentIds.filter(a => a.startsWith(words[0]));
       return [hits.length ? hits : knownAgentIds, words[0]];
     }
 
-    // File path completion for the last word
-    const lastWord = words[words.length - 1];
+    // File path completion for non-@ paths too
     if (lastWord && (lastWord.includes('/') || lastWord.includes('.'))) {
-      try {
-        const dir = lastWord.includes('/')
-          ? path.dirname(lastWord)
-          : '.';
-        const prefix = lastWord.includes('/')
-          ? path.basename(lastWord)
-          : lastWord;
-
-        if (fs.existsSync(dir)) {
-          const entries = fs.readdirSync(dir);
-          const matches = entries
-            .filter(e => e.startsWith(prefix))
-            .filter(e => !e.startsWith('.') && e !== 'node_modules' && e !== 'dist')
-            .map(e => {
-              const full = dir === '.' ? e : `${dir}/${e}`;
-              const isDir = fs.statSync(full).isDirectory();
-              return isDir ? `${full}/` : full;
-            });
-          if (matches.length > 0) {
-            return [matches, lastWord];
-          }
-        }
-      } catch {
-        // ignore
-      }
+      const matches = completeFilePath(lastWord);
+      if (matches.length > 0) return [matches, lastWord];
     }
 
     return [[], line];
@@ -272,8 +280,8 @@ function showBanner(projectName: string, language: string, framework: string | n
   console.log(`  ${C.green}●${C.reset} ${C.bold}Provider${C.reset}  ${providerName}`);
   console.log();
   console.log(`  ${C.gray}Type a command or question. Tab to autocomplete.${C.reset}`);
-  console.log(`  ${C.gray}Examples: ${C.white}review src/app.ts${C.gray} | ${C.white}fix the bug${C.gray} | ${C.white}security src/${C.reset}`);
-  console.log(`  ${C.gray}Commands: ${C.white}/help${C.gray} ${C.white}/agents${C.gray} ${C.white}/providers${C.gray} ${C.white}/test${C.gray} ${C.white}/quit${C.reset}`);
+  console.log(`  ${C.gray}Use ${C.white}@${C.gray} to tag files: ${C.white}review @src/app.ts${C.gray} | ${C.white}explain @lib/auth.ts${C.reset}`);
+  console.log(`  ${C.gray}Use ${C.white}/${C.gray} for commands: ${C.white}/help${C.gray} ${C.white}/agents${C.gray} ${C.white}/providers${C.gray} ${C.white}/test${C.gray} ${C.white}/quit${C.reset}`);
   console.log();
 }
 
@@ -283,26 +291,35 @@ function showBanner(projectName: string, language: string, framework: string | n
 
 function showHelp(): void {
   console.log();
-  console.log(`  ${C.bold}${C.brightCyan}Commands${C.reset}`);
+  console.log(`  ${C.bold}${C.brightCyan}Slash Commands${C.reset}`);
   console.log(`  ${C.white}/help${C.reset}        ${C.gray}Show this help${C.reset}`);
   console.log(`  ${C.white}/agents${C.reset}      ${C.gray}List all 24 agents${C.reset}`);
   console.log(`  ${C.white}/providers${C.reset}   ${C.gray}Show AI provider status${C.reset}`);
   console.log(`  ${C.white}/project${C.reset}     ${C.gray}Show detected project info${C.reset}`);
   console.log(`  ${C.white}/test${C.reset}        ${C.gray}Test AI provider connectivity${C.reset}`);
+  console.log(`  ${C.white}/clear${C.reset}       ${C.gray}Clear the screen${C.reset}`);
   console.log(`  ${C.white}/quit${C.reset}        ${C.gray}Exit${C.reset}`);
   console.log();
-  console.log(`  ${C.bold}${C.brightCyan}Usage${C.reset}`);
-  console.log(`  ${C.white}review ${C.cyan}<file>${C.reset}          ${C.gray}Code review${C.reset}`);
-  console.log(`  ${C.white}fix ${C.cyan}<file>${C.reset}             ${C.gray}Fix issues${C.reset}`);
-  console.log(`  ${C.white}test ${C.cyan}<file>${C.reset}            ${C.gray}Generate tests${C.reset}`);
-  console.log(`  ${C.white}debug ${C.cyan}<error>${C.reset}          ${C.gray}Root cause analysis${C.reset}`);
-  console.log(`  ${C.white}security ${C.cyan}<path>${C.reset}        ${C.gray}Security audit${C.reset}`);
-  console.log(`  ${C.white}explain ${C.cyan}<file>${C.reset}         ${C.gray}Code explanation${C.reset}`);
-  console.log(`  ${C.white}ask ${C.cyan}<question>${C.reset}         ${C.gray}Ask about your codebase${C.reset}`);
-  console.log(`  ${C.white}devops ${C.cyan}<question>${C.reset}      ${C.gray}DevOps guidance${C.reset}`);
-  console.log(`  ${C.white}performance ${C.cyan}<path>${C.reset}     ${C.gray}Performance audit${C.reset}`);
+  console.log(`  ${C.bold}${C.brightCyan}File Tagging${C.reset}  ${C.gray}Use ${C.white}@${C.gray} to reference files (Tab to autocomplete)${C.reset}`);
+  console.log(`  ${C.white}review @src/app.ts${C.reset}          ${C.gray}Review a specific file${C.reset}`);
+  console.log(`  ${C.white}explain @lib/auth.ts${C.reset}        ${C.gray}Explain a file${C.reset}`);
+  console.log(`  ${C.white}fix @src/api.ts${C.reset}             ${C.gray}Fix issues in a file${C.reset}`);
+  console.log(`  ${C.white}what does @utils/hash.ts do${C.reset} ${C.gray}Natural language with file context${C.reset}`);
   console.log();
-  console.log(`  ${C.gray}Tab autocompletes agent names and file paths${C.reset}`);
+  console.log(`  ${C.bold}${C.brightCyan}Agent Commands${C.reset}`);
+  console.log(`  ${C.white}review ${C.cyan}<file|path>${C.reset}       ${C.gray}Code review${C.reset}`);
+  console.log(`  ${C.white}fix ${C.cyan}<file>${C.reset}              ${C.gray}Fix issues${C.reset}`);
+  console.log(`  ${C.white}test ${C.cyan}<file>${C.reset}             ${C.gray}Generate tests${C.reset}`);
+  console.log(`  ${C.white}debug ${C.cyan}<error>${C.reset}           ${C.gray}Root cause analysis${C.reset}`);
+  console.log(`  ${C.white}security ${C.cyan}<path>${C.reset}         ${C.gray}Security audit${C.reset}`);
+  console.log(`  ${C.white}explain ${C.cyan}<file>${C.reset}          ${C.gray}Code explanation${C.reset}`);
+  console.log(`  ${C.white}ask ${C.cyan}<question>${C.reset}          ${C.gray}Ask about your codebase${C.reset}`);
+  console.log(`  ${C.white}devops ${C.cyan}<question>${C.reset}       ${C.gray}DevOps guidance${C.reset}`);
+  console.log(`  ${C.white}performance ${C.cyan}<path>${C.reset}      ${C.gray}Performance audit${C.reset}`);
+  console.log(`  ${C.white}db-architect ${C.cyan}<question>${C.reset}  ${C.gray}Database design${C.reset}`);
+  console.log(`  ${C.white}api-architect ${C.cyan}<question>${C.reset} ${C.gray}API design review${C.reset}`);
+  console.log();
+  console.log(`  ${C.gray}Tip: Type naturally — "check security of src/" or "is there tech debt?"${C.reset}`);
   console.log();
 }
 
@@ -457,6 +474,13 @@ export async function interactiveCommand(): Promise<void> {
         return;
       }
 
+      if (cmd === '/clear') {
+        console.clear();
+        showBanner(projectInfo.name, projectInfo.language, projectInfo.framework, providerInfo.name);
+        processNext();
+        return;
+      }
+
       if (cmd === '/quit' || cmd === '/exit') {
         console.log(`\n  ${C.gray}Goodbye!${C.reset}\n`);
         rl.close();
@@ -469,8 +493,21 @@ export async function interactiveCommand(): Promise<void> {
       return;
     }
 
+    // ---- Extract @file references ----
+    const atFiles: string[] = [];
+    let cleanedInput = input.replace(/@(\S+)/g, (_match, filePath: string) => {
+      atFiles.push(filePath);
+      return filePath; // keep file path in query for NLP router
+    });
+
     // ---- Natural language → agent execution ----
-    const parsed = parseNaturalInput(input, knownAgentIds);
+    const parsed = parseNaturalInput(cleanedInput, knownAgentIds);
+
+    // Merge @tagged files with NLP-detected file path
+    const allFiles = [...new Set([
+      ...(parsed.filePath ? [parsed.filePath] : []),
+      ...atFiles,
+    ])];
 
     const feedback = configManager.getFeedback(parsed.agentId);
     const agent = registry.create(parsed.agentId, projectInfo, undefined, feedback);
@@ -483,7 +520,10 @@ export async function interactiveCommand(): Promise<void> {
 
     // Show what's happening
     console.log();
-    console.log(`  ${C.bgMagenta}${C.bold}${C.white} ${parsed.agentId.toUpperCase()} ${C.reset}  ${parsed.filePath ? `${C.cyan}${parsed.filePath}${C.reset}` : `${C.gray}${parsed.query}${C.reset}`}`);
+    const fileDisplay = allFiles.length > 0
+      ? allFiles.map(f => `${C.cyan}@${f}${C.reset}`).join(' ')
+      : `${C.gray}${parsed.query}${C.reset}`;
+    console.log(`  ${C.bgMagenta}${C.bold}${C.white} ${parsed.agentId.toUpperCase()} ${C.reset}  ${fileDisplay}`);
 
     spinner.start('Gathering context...');
     const startTime = Date.now();
@@ -498,7 +538,7 @@ export async function interactiveCommand(): Promise<void> {
       const result = await Promise.race([
         agent.execute({
           query: parsed.query,
-          files: parsed.filePath ? [parsed.filePath] : undefined,
+          files: allFiles.length > 0 ? allFiles : undefined,
           onProgress: (step: string) => {
             spinner.update(step);
           },
