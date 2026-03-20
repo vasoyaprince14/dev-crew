@@ -42,6 +42,7 @@ function showHelp(): void {
   console.log('  /agents      List all available agents');
   console.log('  /providers   Show detected AI providers');
   console.log('  /project     Show detected project info');
+  console.log('  /test        Test if AI provider is responding');
   console.log('  /quit        Exit interactive mode');
   console.log();
   console.log('\x1b[1mNatural Language:\x1b[0m');
@@ -184,6 +185,30 @@ export async function interactiveCommand(): Promise<void> {
         console.log(`  CI:             ${projectInfo.ciPlatform || 'none'}`);
         console.log(`  Monorepo:       ${projectInfo.monorepo ? 'yes' : 'no'}`);
         console.log(`  Structure:      ${projectInfo.structure}`);
+        console.log();
+        processNext();
+        return;
+      }
+
+      if (cmd === '/test') {
+        console.log();
+        console.log('\x1b[1mTesting AI Provider...\x1b[0m');
+        const testStart = Date.now();
+        try {
+          spinner.start('Sending test prompt to AI...');
+          const testResult = await bridge.send('Respond with exactly: "Dev-Crew OK"', {
+            systemPrompt: 'You are a test assistant. Respond with exactly what is asked.',
+            maxTokens: 100,
+          });
+          const testElapsed = ((Date.now() - testStart) / 1000).toFixed(1);
+          spinner.succeed(`AI responded in ${testElapsed}s`);
+          console.log(`  \x1b[32mResponse:\x1b[0m ${testResult.content.slice(0, 200)}`);
+          console.log(`  \x1b[90mTokens: ~${testResult.tokensUsed}\x1b[0m`);
+        } catch (err) {
+          const testElapsed = ((Date.now() - testStart) / 1000).toFixed(1);
+          spinner.fail(`AI test failed after ${testElapsed}s`);
+          console.log(`  \x1b[31m${err instanceof Error ? err.message : String(err)}\x1b[0m`);
+        }
         console.log();
         processNext();
         return;
