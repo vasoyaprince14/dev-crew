@@ -30,13 +30,28 @@ import { analyticsCommand } from '../src/commands/analytics-cmd.js';
 import { tokensCommand } from '../src/commands/tokens.js';
 import { sprintReportCommand } from '../src/commands/sprint-report.js';
 import { explainCommand } from '../src/commands/explain.js';
+import { devopsCommand } from '../src/commands/devops.js';
+import { costOptimizerCommand } from '../src/commands/cost-optimizer.js';
+import { fullstackBuilderCommand } from '../src/commands/fullstack-builder.js';
+import { dbArchitectCommand } from '../src/commands/db-architect.js';
+import { apiArchitectCommand } from '../src/commands/api-architect.js';
+import { flutterCommand } from '../src/commands/flutter.js';
+import { reactNativeCommand } from '../src/commands/react-native.js';
+import { iosCommand } from '../src/commands/ios.js';
+import { androidCommand } from '../src/commands/android.js';
+import { monitoringCommand } from '../src/commands/monitoring.js';
+import { performanceCommand } from '../src/commands/performance.js';
+import { accessibilityCommand } from '../src/commands/accessibility.js';
+import { scaffoldCommand } from '../src/commands/scaffold.js';
+import { buildCommand } from '../src/commands/build.js';
+import { deployCommand } from '../src/commands/deploy.js';
 
 const program = new Command();
 
 program
   .name('dev-crew')
   .description('AI-powered developer crew running on your local Claude Code')
-  .version('0.1.0');
+  .version('0.2.0');
 
 // ===== SETUP =====
 program
@@ -211,5 +226,86 @@ program
     console.log(lib.formatPatterns());
     console.log();
   });
+
+// ===== V2: DEVOPS & INFRASTRUCTURE =====
+program
+  .command('devops [question]')
+  .description('Docker, CI/CD, and infrastructure guidance')
+  .action(devopsCommand);
+
+program
+  .command('cost-optimizer [question]')
+  .description('Deployment cost analysis and optimization')
+  .action(costOptimizerCommand);
+
+program
+  .command('deploy [question]')
+  .description('Get a complete deployment strategy for your project')
+  .action(deployCommand);
+
+program
+  .command('monitoring [question]')
+  .description('Observability, alerting, and logging strategy')
+  .action(monitoringCommand);
+
+// ===== V2: FULL-STACK BUILDER =====
+program
+  .command('scaffold <description>')
+  .description('Scaffold a new full-stack project')
+  .action(scaffoldCommand);
+
+program
+  .command('build <description>')
+  .description('Build a feature into your existing project')
+  .option('-s, --stack <stack>', 'Tech stack to use')
+  .action(buildCommand);
+
+program
+  .command('fullstack-builder <description>')
+  .description('Full-stack project architecture and scaffolding')
+  .action(fullstackBuilderCommand);
+
+// ===== V2: DATABASE & API =====
+program
+  .command('db-architect [path-or-question]')
+  .description('Database schema design and query optimization')
+  .action(dbArchitectCommand);
+
+program
+  .command('api-architect [path-or-question]')
+  .description('API design review and best practices')
+  .action(apiArchitectCommand);
+
+// ===== V2: MOBILE DEVELOPMENT =====
+program
+  .command('flutter [path-or-question]')
+  .description('Flutter/Dart development and code review')
+  .action(flutterCommand);
+
+program
+  .command('react-native [path-or-question]')
+  .description('React Native development and review')
+  .action(reactNativeCommand);
+
+program
+  .command('ios [path-or-question]')
+  .description('iOS/Swift development and review')
+  .action(iosCommand);
+
+program
+  .command('android [path-or-question]')
+  .description('Android/Kotlin development and review')
+  .action(androidCommand);
+
+// ===== V2: QUALITY & PERFORMANCE =====
+program
+  .command('performance [path]')
+  .description('Frontend and backend performance audit')
+  .action(performanceCommand);
+
+program
+  .command('accessibility [path]')
+  .description('WCAG compliance and accessibility audit')
+  .action(accessibilityCommand);
 
 program.parse();

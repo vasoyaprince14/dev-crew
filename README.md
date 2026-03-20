@@ -2,7 +2,7 @@
 
 **AI-powered developer crew running on your local Claude Code.**
 
-Dev-Crew is a CLI tool that provides 12+ specialized AI agents for code review, debugging, testing, security auditing, architecture decisions, and more — all powered by your locally installed [Claude Code](https://claude.ai/claude-code). Zero cloud infrastructure. Zero API keys. Just your Claude Code subscription.
+Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands for code review, debugging, testing, security auditing, architecture decisions, mobile development (Flutter, React Native, iOS, Android), DevOps, cost optimization, and more — all powered by your locally installed [Claude Code](https://claude.ai/claude-code). Zero cloud infrastructure. Zero API keys. Just your Claude Code subscription.
 
 ---
 
@@ -13,7 +13,7 @@ Dev-Crew is a CLI tool that provides 12+ specialized AI agents for code review, 
 | Generic AI code review | Project-aware review with framework-specific rules |
 | Manual context gathering | Auto-detects language, framework, DB, ORM, test runner |
 | Token waste | Smart context compression saves 40-70% tokens |
-| One-size-fits-all agents | 12 specialized agents (review, security, CTO, BA, etc.) |
+| One-size-fits-all agents | 24 specialized agents (review, security, DevOps, mobile, etc.) |
 | No learning | Pattern library + feedback system that improves over time |
 | No metrics | Built-in analytics, debt tracking, and sprint reports |
 
@@ -36,6 +36,26 @@ Dev-Crew is a CLI tool that provides 12+ specialized AI agents for code review, 
 - **PR Reviewer** — Automated pull request review with approve/request_changes verdict
 - **Security** — OWASP Top 10 audit with exploit scenarios and fix guidance
 - **Designer** — API and database schema design review
+
+### v2: DevOps & Infrastructure Agents
+- **DevOps** — Docker optimization, CI/CD pipeline generation, Terraform/IaC guidance
+- **Cost Optimizer** — Deployment cost analysis, provider comparison (AWS/GCP/Azure/Vercel/Railway)
+- **Monitoring** — Observability setup, alerting rules, logging strategy, APM configuration
+
+### v2: Full-Stack Builder Agents
+- **Full-Stack Builder** — Scaffold entire apps, generate boilerplate, project architecture
+- **DB Architect** — Schema design, query optimization, indexing strategy, migration planning
+- **API Architect** — REST/GraphQL design review, versioning, rate limiting, error standards
+
+### v2: Mobile Development Agents
+- **Flutter** — Dart/Flutter code review, widget composition, state management
+- **React Native** — RN development, navigation, native modules, performance
+- **iOS** — Swift/SwiftUI review, memory management, App Store guidelines
+- **Android** — Kotlin/Jetpack Compose review, lifecycle, Play Store guidelines
+
+### v2: Quality & Performance Agents
+- **Performance** — Frontend/backend performance audit, bundle analysis, caching
+- **Accessibility** — WCAG 2.1 compliance audit, screen reader support, keyboard navigation
 
 ### 25 Built-in Features (USPs)
 
@@ -133,6 +153,25 @@ dev-crew security src/
 
 # Full feature pipeline
 dev-crew feature "Add user authentication with JWT"
+
+# Scaffold a new project
+dev-crew scaffold "React + Express + Postgres todo app"
+
+# DevOps guidance
+dev-crew devops "Optimize my Dockerfile for production"
+
+# Cost optimization
+dev-crew cost-optimizer "Best hosting for a Node.js API with 10k daily users"
+
+# Mobile development
+dev-crew flutter lib/screens/home.dart
+dev-crew react-native "How to implement push notifications?"
+dev-crew ios "Best practice for Core Data with SwiftUI?"
+dev-crew android src/main/kotlin/MainActivity.kt
+
+# Performance & accessibility
+dev-crew performance src/
+dev-crew accessibility src/components/
 ```
 
 ---
@@ -196,6 +235,37 @@ dev-crew feature "Add user authentication with JWT"
 |---|---|
 | `dev-crew analytics` | View developer analytics and improvement trends |
 | `dev-crew sprint-report` | Generate a sprint summary report |
+
+### DevOps & Infrastructure (v2)
+| Command | Description |
+|---|---|
+| `dev-crew devops [question]` | Docker, CI/CD, and infrastructure guidance |
+| `dev-crew cost-optimizer [question]` | Deployment cost analysis and optimization |
+| `dev-crew deploy [question]` | Get a complete deployment strategy |
+| `dev-crew monitoring [question]` | Observability, alerting, and logging strategy |
+
+### Full-Stack Builder (v2)
+| Command | Description |
+|---|---|
+| `dev-crew scaffold <description>` | Scaffold a new full-stack project |
+| `dev-crew build <description>` | Build a feature into your existing project |
+| `dev-crew fullstack-builder <description>` | Full-stack architecture and scaffolding |
+| `dev-crew db-architect [path-or-question]` | Database schema design and optimization |
+| `dev-crew api-architect [path-or-question]` | API design review and best practices |
+
+### Mobile Development (v2)
+| Command | Description |
+|---|---|
+| `dev-crew flutter [path-or-question]` | Flutter/Dart development and review |
+| `dev-crew react-native [path-or-question]` | React Native development and review |
+| `dev-crew ios [path-or-question]` | iOS/Swift development and review |
+| `dev-crew android [path-or-question]` | Android/Kotlin development and review |
+
+### Quality & Performance (v2)
+| Command | Description |
+|---|---|
+| `dev-crew performance [path]` | Frontend and backend performance audit |
+| `dev-crew accessibility [path]` | WCAG compliance and accessibility audit |
 
 ### Configuration
 | Command | Description |
@@ -270,7 +340,7 @@ dev-crew feedback review "Focus more on error handling patterns"
 dev-crew
 ├── bin/dev-crew.ts          # CLI entry point (Commander.js)
 ├── src/
-│   ├── agents/              # 12 specialized AI agents
+│   ├── agents/              # 24 specialized AI agents
 │   │   ├── base-agent.ts    # Abstract base with shared logic
 │   │   ├── registry.ts      # Agent registration and creation
 │   │   ├── review/          # Code review agent
@@ -284,8 +354,20 @@ dev-crew
 │   │   ├── security/        # Security audit agent
 │   │   ├── designer/        # API/schema design agent
 │   │   ├── onboard/         # Onboarding agent
-│   │   └── ask/             # Codebase Q&A agent
-│   ├── commands/            # 27 CLI command handlers
+│   │   ├── ask/             # Codebase Q&A agent
+│   │   ├── devops/          # DevOps/infrastructure agent
+│   │   ├── cost-optimizer/  # Cost optimization agent
+│   │   ├── fullstack-builder/ # Full-stack scaffolding agent
+│   │   ├── db-architect/    # Database architect agent
+│   │   ├── api-architect/   # API design agent
+│   │   ├── flutter/         # Flutter/Dart agent
+│   │   ├── react-native/    # React Native agent
+│   │   ├── ios/             # iOS/Swift agent
+│   │   ├── android/         # Android/Kotlin agent
+│   │   ├── monitoring/      # Monitoring/observability agent
+│   │   ├── performance/     # Performance audit agent
+│   │   └── accessibility/   # Accessibility audit agent
+│   ├── commands/            # 47 CLI command handlers
 │   ├── core/                # Engine components
 │   │   ├── claude-bridge.ts # Claude Code subprocess bridge
 │   │   ├── project-detector.ts # Auto-detect project stack
@@ -347,9 +429,11 @@ Dev-Crew runs entirely on your machine using your existing Claude Code installat
 
 ## Supported Stacks
 
-**Languages:** TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP
+**Languages:** TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, Swift, Dart, C#, Ruby, PHP
 
-**Frameworks:** NestJS, Express, Fastify, Next.js, React, Vue, Angular, Django, Flask, FastAPI, Spring Boot, Rails, Laravel
+**Web Frameworks:** NestJS, Express, Fastify, Next.js, React, Vue, Angular, Django, Flask, FastAPI, Spring Boot, Rails, Laravel
+
+**Mobile Frameworks:** Flutter, React Native, SwiftUI/UIKit (iOS), Jetpack Compose (Android)
 
 **Databases:** PostgreSQL, MySQL, MongoDB, Redis, SQLite
 

@@ -11,6 +11,18 @@ import { SecurityAgent } from './security/index.js';
 import { DesignerAgent } from './designer/index.js';
 import { OnboardAgent } from './onboard/index.js';
 import { AskAgent } from './ask/index.js';
+import { FullStackBuilderAgent } from './fullstack-builder/index.js';
+import { DBArchitectAgent } from './db-architect/index.js';
+import { APIArchitectAgent } from './api-architect/index.js';
+import { DevOpsAgent } from './devops/index.js';
+import { CostOptimizerAgent } from './cost-optimizer/index.js';
+import { FlutterAgent } from './flutter/index.js';
+import { ReactNativeAgent } from './react-native/index.js';
+import { IOSAgent } from './ios/index.js';
+import { AndroidAgent } from './android/index.js';
+import { MonitoringAgent } from './monitoring/index.js';
+import { PerformanceAgent } from './performance/index.js';
+import { AccessibilityAgent } from './accessibility/index.js';
 import type { AgentConfig } from '../types/agent.js';
 import type { ProjectInfo } from '../types/config.js';
 
@@ -142,6 +154,131 @@ const BUILT_IN_AGENTS: Record<string, AgentEntry> = {
       description: 'Ask questions about your codebase',
       tier: 'free',
       maxTokens: 4096,
+      contextDepth: 2,
+    },
+  },
+  'fullstack-builder': {
+    cls: FullStackBuilderAgent,
+    defaultConfig: {
+      name: 'fullstack-builder',
+      description: 'Scaffold full-stack project structures',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeSchema: true,
+      includeConfig: true,
+      contextDepth: 3,
+    },
+  },
+  'db-architect': {
+    cls: DBArchitectAgent,
+    defaultConfig: {
+      name: 'db-architect',
+      description: 'Database schema review and query optimization',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeSchema: true,
+      contextDepth: 2,
+    },
+  },
+  'api-architect': {
+    cls: APIArchitectAgent,
+    defaultConfig: {
+      name: 'api-architect',
+      description: 'API design review and optimization',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeSchema: true,
+      contextDepth: 2,
+    },
+  },
+  devops: {
+    cls: DevOpsAgent,
+    defaultConfig: {
+      name: 'devops',
+      description: 'Docker, CI/CD, and infrastructure guidance',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeConfig: true,
+      contextDepth: 2,
+    },
+  },
+  'cost-optimizer': {
+    cls: CostOptimizerAgent,
+    defaultConfig: {
+      name: 'cost-optimizer',
+      description: 'Deployment cost analysis and optimization',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  flutter: {
+    cls: FlutterAgent,
+    defaultConfig: {
+      name: 'flutter',
+      description: 'Flutter/Dart development and code review',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  'react-native': {
+    cls: ReactNativeAgent,
+    defaultConfig: {
+      name: 'react-native',
+      description: 'React Native development and review',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  ios: {
+    cls: IOSAgent,
+    defaultConfig: {
+      name: 'ios',
+      description: 'iOS/Swift development and review',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  android: {
+    cls: AndroidAgent,
+    defaultConfig: {
+      name: 'android',
+      description: 'Android/Kotlin development and review',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  monitoring: {
+    cls: MonitoringAgent,
+    defaultConfig: {
+      name: 'monitoring',
+      description: 'Observability, alerting, and logging strategy',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  performance: {
+    cls: PerformanceAgent,
+    defaultConfig: {
+      name: 'performance',
+      description: 'Frontend and backend performance audit',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  accessibility: {
+    cls: AccessibilityAgent,
+    defaultConfig: {
+      name: 'accessibility',
+      description: 'WCAG compliance and accessibility audit',
+      tier: 'pro',
+      maxTokens: 8192,
       contextDepth: 2,
     },
   },
