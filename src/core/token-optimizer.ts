@@ -52,7 +52,7 @@ export class TokenOptimizer {
   }
 
   private estimateCost(promptTokens: number, responseTokens: number): number {
-    // Rough estimate based on Claude Sonnet pricing
+    // Rough estimate based on AI model pricing
     return (promptTokens * 0.003 + responseTokens * 0.015) / 1000;
   }
 }

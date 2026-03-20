@@ -1,8 +1,8 @@
 # Dev-Crew
 
-**AI-powered developer crew running on your local Claude Code.**
+**AI-powered developer crew built by Prince Vasoya.**
 
-Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands for code review, debugging, testing, security auditing, architecture decisions, mobile development (Flutter, React Native, iOS, Android), DevOps, cost optimization, and more — all powered by your locally installed [Claude Code](https://claude.ai/claude-code). Zero cloud infrastructure. Zero API keys. Just your Claude Code subscription.
+Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands for code review, debugging, testing, security auditing, architecture decisions, mobile development (Flutter, React Native, iOS, Android), DevOps, cost optimization, and more — AI-powered developer tools built by Prince Vasoya. Zero cloud infrastructure. Intelligent code analysis powered by AI.
 
 ---
 
@@ -94,7 +94,7 @@ Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands fo
 ### Prerequisites
 
 - **Node.js** >= 18.0.0
-- **Claude Code** installed and working ([install guide](https://docs.anthropic.com/en/docs/claude-code))
+- **AI backend** configured
 
 ### Install from npm
 
@@ -182,7 +182,7 @@ dev-crew accessibility src/components/
 | Command | Description |
 |---|---|
 | `dev-crew init` | Initialize Dev-Crew in your project |
-| `dev-crew doctor` | Check Claude Code installation and project setup |
+| `dev-crew doctor` | Check system setup and project configuration |
 
 ### Core Agents
 | Command | Description |
@@ -369,7 +369,7 @@ dev-crew
 │   │   └── accessibility/   # Accessibility audit agent
 │   ├── commands/            # 47 CLI command handlers
 │   ├── core/                # Engine components
-│   │   ├── claude-bridge.ts # Claude Code subprocess bridge
+│   │   ├── claude-bridge.ts # AI engine bridge
 │   │   ├── project-detector.ts # Auto-detect project stack
 │   │   ├── context-engine.ts   # Smart context gathering
 │   │   ├── token-optimizer.ts  # Token compression
@@ -393,13 +393,13 @@ dev-crew
 1. **Project Detection** — Automatically detects your language, framework, database, ORM, test runner, and CI platform
 2. **Context Gathering** — Reads relevant files, schemas, configs, and dependency graphs
 3. **Token Optimization** — Compresses context to minimize token usage (40-70% savings)
-4. **Agent Execution** — Sends optimized prompt to Claude Code via subprocess (`claude --print`)
-5. **Response Parsing** — Extracts structured data (issues, fixes, diffs) from Claude's response
+4. **Agent Execution** — Sends optimized prompt to AI engine
+5. **Response Parsing** — Extracts structured data (issues, fixes, diffs) from AI response
 6. **Learning** — Records patterns, updates debt tracker, and tracks analytics
 
 ### Zero Infrastructure
 
-Dev-Crew runs entirely on your machine using your existing Claude Code installation. No servers, no API keys, no additional subscriptions. It spawns Claude Code as a subprocess and communicates via stdin/stdout.
+Dev-Crew runs entirely on your machine. No external servers required. Built by Prince Vasoya.
 
 ---
 
@@ -465,4 +465,4 @@ MIT
 
 ---
 
-Built with Claude Code.
+Built by Prince Vasoya.

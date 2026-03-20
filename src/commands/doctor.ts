@@ -8,14 +8,14 @@ export async function doctorCommand(): Promise<void> {
 
   logger.header('Dev-Crew Doctor');
 
-  // Check Claude Code
+  // Check AI engine
   const bridge = new ClaudeBridge();
   const installed = await bridge.verify();
   if (installed) {
     const version = await bridge.getVersion();
-    logger.success(`Claude Code: installed (${version})`);
+    logger.success(`AI Engine: installed (${version})`);
   } else {
-    logger.error('Claude Code: NOT FOUND');
+    logger.error('AI Engine: NOT FOUND');
     logger.info('  Install: npm install -g @anthropic-ai/claude-code');
   }
 

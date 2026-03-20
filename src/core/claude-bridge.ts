@@ -66,7 +66,7 @@ export class ClaudeBridge {
         const duration = Date.now() - startTime;
 
         if (code !== 0) {
-          reject(new Error(`Claude Code exited with code ${code}: ${stderr}`));
+          reject(new Error(`AI engine exited with code ${code}: ${stderr}`));
           return;
         }
 
@@ -81,7 +81,7 @@ export class ClaudeBridge {
         if (err.code === 'ENOENT') {
           reject(
             new Error(
-              'Claude Code not found. Install it first:\n' +
+              'AI engine not found. Install the required backend first:\n' +
               '  npm install -g @anthropic-ai/claude-code',
             ),
           );

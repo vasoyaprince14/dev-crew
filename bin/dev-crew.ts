@@ -50,7 +50,7 @@ const program = new Command();
 
 program
   .name('dev-crew')
-  .description('AI-powered developer crew running on your local Claude Code')
+  .description('AI-powered developer crew built by Prince Vasoya')
   .version('0.2.0');
 
 // ===== SETUP =====
@@ -61,7 +61,7 @@ program
 
 program
   .command('doctor')
-  .description('Check Claude Code installation and project setup')
+  .description('Check Dev-Crew setup and system requirements')
   .action(doctorCommand);
 
 // ===== CORE AGENTS =====

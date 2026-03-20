@@ -1,7 +1,7 @@
 {
   "name": "dev-crew",
   "version": "0.2.0",
-  "description": "AI-powered developer crew that runs on your local Claude Code. Code review, debugging, testing, and more.",
+  "description": "AI-powered developer crew built by Prince Vasoya. Code review, debugging, testing, and more.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,9 +21,9 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "claude",
-    "claude-code",
     "ai",
+    "dev-crew",
+    "prince-vasoya",
     "code-review",
     "developer-tools",
     "cli",
@@ -31,7 +31,7 @@
     "debugging",
     "testing"
   ],
-  "author": "",
+  "author": "Prince Vasoya",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

@@ -19,20 +19,20 @@ export async function initCommand(): Promise<void> {
     return;
   }
 
-  // Check Claude Code
-  spinner.start('Checking Claude Code installation...');
+  // Check AI engine
+  spinner.start('Checking AI engine installation...');
   const bridge = new ClaudeBridge();
-  const claudeInstalled = await bridge.verify();
+  const engineInstalled = await bridge.verify();
 
-  if (!claudeInstalled) {
-    spinner.fail('Claude Code not found');
-    logger.error('Claude Code is required. Install it first:');
+  if (!engineInstalled) {
+    spinner.fail('AI engine not found');
+    logger.error('AI engine is required. Install it first:');
     logger.info('  npm install -g @anthropic-ai/claude-code');
     process.exit(1);
   }
 
   const version = await bridge.getVersion();
-  spinner.succeed(`Claude Code found (${version})`);
+  spinner.succeed(`AI engine found (${version})`);
 
   // Detect project
   spinner.start('Detecting project...');

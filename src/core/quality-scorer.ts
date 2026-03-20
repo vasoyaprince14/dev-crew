@@ -16,7 +16,7 @@ interface QualityReport {
 
 export class QualityScorer {
   /**
-   * Request a before/after quality score from Claude via the agent
+   * Request a before/after quality score from AI via the agent
    */
   buildQualityPromptSection(): string {
     return `

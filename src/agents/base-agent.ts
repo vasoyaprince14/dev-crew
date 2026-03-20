@@ -51,7 +51,7 @@ export abstract class BaseAgent {
       this.logger.warn(`This operation will use ~${estimate.toLocaleString()} tokens`);
     }
 
-    // 4. Send to Claude Code
+    // 4. Send to AI engine
     const response = await this.bridge.send(prompt, {
       systemPrompt: this.getSystemPrompt(),
       maxTokens: this.config.maxTokens ?? 8192,

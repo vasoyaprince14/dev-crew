@@ -1,4 +1,4 @@
-// Dev-Crew — AI-powered developer crew on your local Claude Code
+// Dev-Crew — AI-powered developer crew built by Prince Vasoya
 
 // Core
 export { ClaudeBridge } from './core/claude-bridge.js';
