@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 import { initCommand } from '../src/commands/init.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { reviewCommand } from '../src/commands/review.js';
@@ -52,7 +55,7 @@ const program = new Command();
 program
   .name('dev-crew')
   .description('AI-powered developer crew built by Prince Vasoya')
-  .version('1.0.0');
+  .version(pkg.version);
 
 // ===== SETUP =====
 program
