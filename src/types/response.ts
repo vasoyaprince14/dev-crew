@@ -10,6 +10,7 @@ export interface ClaudeOptions {
   timeout?: number;
   streaming?: boolean;
   onStream?: (chunk: string) => void;
+  outputFormat?: string;
 }
 
 export interface TokenReport {

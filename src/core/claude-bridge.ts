@@ -120,8 +120,8 @@ IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no backtic
     if (options.systemPrompt) {
       args.push('--system-prompt', options.systemPrompt);
     }
-    if (options.maxTokens) {
-      args.push('--max-tokens', String(options.maxTokens));
+    if (options.outputFormat) {
+      args.push('--output-format', options.outputFormat);
     }
 
     return args;
