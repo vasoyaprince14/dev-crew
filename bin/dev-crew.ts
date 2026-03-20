@@ -45,6 +45,7 @@ import { accessibilityCommand } from '../src/commands/accessibility.js';
 import { scaffoldCommand } from '../src/commands/scaffold.js';
 import { buildCommand } from '../src/commands/build.js';
 import { deployCommand } from '../src/commands/deploy.js';
+import { interactiveCommand } from '../src/commands/interactive.js';
 
 const program = new Command();
 
@@ -307,5 +308,12 @@ program
   .command('accessibility [path]')
   .description('WCAG compliance and accessibility audit')
   .action(accessibilityCommand);
+
+// ===== INTERACTIVE MODE =====
+program
+  .command('interactive')
+  .alias('i')
+  .description('Interactive REPL mode — natural language agent routing')
+  .action(interactiveCommand);
 
 program.parse();
