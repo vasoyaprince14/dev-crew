@@ -362,6 +362,9 @@ export class ProviderBridge {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
+      // Close stdin immediately so the AI process knows no more input is coming
+      proc.stdin.end();
+
       let stdout = '';
       let stderr = '';
 
