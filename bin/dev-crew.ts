@@ -51,7 +51,7 @@ const program = new Command();
 program
   .name('dev-crew')
   .description('AI-powered developer crew built by Prince Vasoya')
-  .version('0.2.0');
+  .version('1.0.0');
 
 // ===== SETUP =====
 program
