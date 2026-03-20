@@ -2,7 +2,7 @@
 
 **AI-powered developer crew built by Prince Vasoya.**
 
-Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands for code review, debugging, testing, security auditing, architecture decisions, mobile development (Flutter, React Native, iOS, Android), DevOps, cost optimization, and more — AI-powered developer tools built by Prince Vasoya. Zero cloud infrastructure. Intelligent code analysis powered by AI.
+Dev-Crew is a CLI tool that provides 24 specialized AI agents, 48 commands, and an interactive REPL mode for code review, debugging, testing, security auditing, architecture decisions, mobile development (Flutter, React Native, iOS, Android), DevOps, cost optimization, and more — AI-powered developer tools built by Prince Vasoya. Multi-provider support (Claude Code, Aider, GitHub Copilot, OpenAI, Ollama) with simulation mode. Zero cloud infrastructure.
 
 ---
 
@@ -14,6 +14,8 @@ Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands fo
 | Manual context gathering | Auto-detects language, framework, DB, ORM, test runner |
 | Token waste | Smart context compression saves 40-70% tokens |
 | One-size-fits-all agents | 24 specialized agents (review, security, DevOps, mobile, etc.) |
+| Locked to one AI provider | Multi-provider: Claude Code, Aider, Copilot, OpenAI, Ollama |
+| No way to try without AI | Simulation mode — works without any AI installed |
 | No learning | Pattern library + feedback system that improves over time |
 | No metrics | Built-in analytics, debt tracking, and sprint reports |
 
@@ -57,6 +59,32 @@ Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands fo
 - **Performance** — Frontend/backend performance audit, bundle analysis, caching
 - **Accessibility** — WCAG 2.1 compliance audit, screen reader support, keyboard navigation
 
+### Multi-Provider AI Support
+Dev-Crew auto-detects and works with any of these AI backends:
+- **Claude Code** — Anthropic's CLI (highest priority)
+- **Aider** — Open-source AI pair programming
+- **GitHub Copilot** — Via `gh copilot`
+- **OpenAI CLI** — GPT-4o via OpenAI's CLI
+- **Ollama** — Run local models (Llama 3, etc.)
+- **Simulation Mode** — Works without any AI installed (returns mock responses for testing)
+
+### Interactive REPL Mode
+Start an interactive session and use natural language to invoke any agent:
+```bash
+dev-crew interactive   # or: dev-crew i
+
+# Inside the REPL:
+❯ review src/index.ts
+❯ fix the login bug
+❯ write tests for utils/helper.ts
+❯ explain how the auth flow works
+❯ check security of the API routes
+❯ /help                # show commands
+❯ /agents              # list all agents
+❯ /providers           # show detected AI providers
+❯ /quit                # exit
+```
+
 ### 25 Built-in Features (USPs)
 
 | # | Feature | Description |
@@ -94,7 +122,7 @@ Dev-Crew is a CLI tool that provides 24 specialized AI agents and 47 commands fo
 ### Prerequisites
 
 - **Node.js** >= 18.0.0
-- **AI backend** configured
+- **AI provider** (any one of: Claude Code, Aider, GitHub Copilot, OpenAI CLI, Ollama) — or use **simulation mode** without any AI installed
 
 ### Install from npm
 
@@ -141,6 +169,9 @@ dev-crew debug "TypeError: Cannot read property 'id' of undefined"
 
 # Generate tests
 dev-crew test src/services/auth.ts --type unit
+
+# Interactive mode — natural language REPL
+dev-crew interactive
 
 # Ask about your codebase
 dev-crew ask "How does authentication work?"
@@ -267,6 +298,11 @@ dev-crew accessibility src/components/
 | `dev-crew performance [path]` | Frontend and backend performance audit |
 | `dev-crew accessibility [path]` | WCAG compliance and accessibility audit |
 
+### Interactive Mode
+| Command | Description |
+|---|---|
+| `dev-crew interactive` (or `dev-crew i`) | Interactive REPL with natural language agent routing |
+
 ### Configuration
 | Command | Description |
 |---|---|
@@ -367,9 +403,12 @@ dev-crew
 │   │   ├── monitoring/      # Monitoring/observability agent
 │   │   ├── performance/     # Performance audit agent
 │   │   └── accessibility/   # Accessibility audit agent
-│   ├── commands/            # 47 CLI command handlers
+│   ├── commands/            # 48 CLI command handlers
+│   │   ├── interactive.ts   # Interactive REPL mode
+│   │   └── ...
 │   ├── core/                # Engine components
-│   │   ├── claude-bridge.ts # AI engine bridge
+│   │   ├── provider-bridge.ts # Multi-provider AI bridge (Claude, Aider, Copilot, OpenAI, Ollama)
+│   │   ├── nlp-router.ts     # Natural language → agent routing
 │   │   ├── project-detector.ts # Auto-detect project stack
 │   │   ├── context-engine.ts   # Smart context gathering
 │   │   ├── token-optimizer.ts  # Token compression
@@ -381,6 +420,8 @@ dev-crew
 │   │   ├── debt-tracker.ts  # Technical debt tracking
 │   │   ├── pattern-library.ts # Pattern learning
 │   │   └── analytics.ts     # Developer analytics
+│   ├── ui/                  # Terminal UI components
+│   │   └── terminal-ui.ts   # ANSI boxes, spinners, score bars, diff colorizer
 │   ├── types/               # TypeScript interfaces
 │   └── utils/               # Shared utilities
 ├── templates/               # Config templates
