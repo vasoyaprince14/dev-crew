@@ -1,7 +1,6 @@
 {
   "name": "dev-crew",
   "version": "1.0.0",
-  "private": true,
   "description": "AI-powered developer crew built by Prince Vasoya. Code review, debugging, testing, and more.",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +9,8 @@
     "dev-crew": "dist/cli.js"
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
     "templates"
   ],
   "scripts": {
@@ -30,10 +30,25 @@
     "cli",
     "agents",
     "debugging",
-    "testing"
+    "testing",
+    "security",
+    "devops",
+    "flutter",
+    "react-native",
+    "performance",
+    "accessibility",
+    "multi-provider"
   ],
   "author": "Prince Vasoya",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vasoyaprince14/dev-crew.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vasoyaprince14/dev-crew/issues"
+  },
+  "homepage": "https://github.com/vasoyaprince14/dev-crew#readme",
   "engines": {
     "node": ">=18.0.0"
   },
