@@ -83,13 +83,23 @@ Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
   private readDirectoryContext(dirPath: string, maxDepth: number): string {
     const files = walkDir(dirPath, maxDepth);
     const sections: string[] = [];
+    const maxFiles = 15;
+    const maxTotalChars = 80_000; // ~20K tokens
+    let totalChars = 0;
 
     for (const file of files) {
+      if (sections.length >= maxFiles) break;
       const content = readFileSafe(file);
       if (!content) continue;
+      if (totalChars + content.length > maxTotalChars) break;
+      totalChars += content.length;
       const relativePath = path.relative(process.cwd(), file);
       const ext = getExtensionLabel(file);
       sections.push(`## File: ${relativePath}\n\`\`\`${ext}\n${content}\n\`\`\``);
+    }
+
+    if (files.length > sections.length) {
+      sections.push(`\n[... ${files.length - sections.length} more files not shown — use a specific file path for full context]`);
     }
 
     return sections.join('\n\n');
