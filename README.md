@@ -1,6 +1,8 @@
 <p align="center">
   <img src="https://img.shields.io/npm/v/dev-crew?color=brightgreen&style=for-the-badge" alt="npm version" />
-  <img src="https://img.shields.io/npm/dm/dev-crew?color=blue&style=for-the-badge" alt="downloads" />
+  <img src="https://img.shields.io/npm/dm/dev-crew?color=blue&style=for-the-badge" alt="monthly downloads" />
+  <img src="https://img.shields.io/npm/dt/dev-crew?color=purple&style=for-the-badge" alt="total downloads" />
+  <img src="https://img.shields.io/github/stars/vasoyaprince14/dev-crew?style=for-the-badge&color=yellow" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/vasoyaprince14/dev-crew?style=for-the-badge" alt="license" />
   <img src="https://img.shields.io/node/v/dev-crew?style=for-the-badge" alt="node version" />
 </p>
@@ -8,17 +10,22 @@
 <h1 align="center">Dev-Crew</h1>
 
 <p align="center">
-  <strong>Your AI-Powered Developer Team in the Terminal</strong><br/>
-  <sub>24 specialized agents. 48 commands. Multi-provider. Zero infrastructure.</sub>
+  <strong>AI-Powered Code Review, Debugging, Testing, Security Audit & DevOps CLI</strong><br/>
+  <sub>24 specialized AI agents. 48 commands. Works with Claude, OpenAI, Copilot, Aider, Ollama. Zero infrastructure.</sub>
 </p>
 
 <p align="center">
   <a href="#installation">Installation</a> &bull;
   <a href="#quick-start">Quick Start</a> &bull;
-  <a href="#all-agents">Agents</a> &bull;
-  <a href="#all-commands">Commands</a> &bull;
+  <a href="#all-agents">All 24 Agents</a> &bull;
+  <a href="#all-commands">48 Commands</a> &bull;
   <a href="#interactive-mode">Interactive Mode</a> &bull;
+  <a href="#multi-provider-support">Multi-Provider</a> &bull;
   <a href="#configuration">Configuration</a>
+</p>
+
+<p align="center">
+  <sub>If you find Dev-Crew useful, please consider giving it a star on GitHub — it helps others discover it!</sub>
 </p>
 
 ---
@@ -493,6 +500,27 @@ dev-crew
 
 ---
 
+## How Dev-Crew Compares
+
+| Feature | Dev-Crew | Claude Code | GitHub Copilot | Cursor |
+|---|---|---|---|---|
+| Specialized agents (24) | Yes | No | No | No |
+| Code review | Yes | Yes | Limited | Yes |
+| Security audit (OWASP) | Yes | Manual | No | No |
+| Test generation | Yes | Manual | No | Limited |
+| DevOps/Docker guidance | Yes | Manual | No | No |
+| Mobile (Flutter/RN/iOS/Android) | Yes | No | No | No |
+| DB schema design | Yes | No | No | No |
+| API architecture review | Yes | No | No | No |
+| Multi-provider support | 5 providers | Claude only | Copilot only | Multiple |
+| Works without API key | Yes (simulation) | No | No | No |
+| Token optimization | Built-in | No | N/A | No |
+| Interactive REPL | Yes | Yes | No | Yes |
+| Open source | Yes | No | No | No |
+| Price | Free | Paid | Paid | Paid |
+
+---
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
@@ -513,5 +541,10 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  <strong>Built by <a href="https://github.com/vasoyaprince14">Prince Vasoya</a></strong>
+  <strong>Built with passion by <a href="https://github.com/vasoyaprince14">Prince Vasoya</a></strong><br/>
+  <sub>
+    <a href="https://www.npmjs.com/package/dev-crew">npm</a> &bull;
+    <a href="https://github.com/vasoyaprince14/dev-crew/issues">Report Bug</a> &bull;
+    <a href="https://github.com/vasoyaprince14/dev-crew/issues">Request Feature</a>
+  </sub>
 </p>
