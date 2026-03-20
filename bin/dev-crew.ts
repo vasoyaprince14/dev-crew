@@ -319,4 +319,34 @@ program
   .description('Interactive REPL mode — natural language agent routing')
   .action(interactiveCommand);
 
+// ===== STATS =====
+program
+  .command('stats')
+  .description('Show npm download stats for dev-crew')
+  .action(async () => {
+    const https = await import('node:https');
+    const get = (url: string): Promise<string> => new Promise((resolve, reject) => {
+      https.get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk: Buffer) => data += chunk);
+        res.on('end', () => resolve(data));
+      }).on('error', reject);
+    });
+    try {
+      const [day, week, month] = await Promise.all([
+        get('https://api.npmjs.org/downloads/point/last-day/dev-crew').then(d => JSON.parse(d).downloads || 0),
+        get('https://api.npmjs.org/downloads/point/last-week/dev-crew').then(d => JSON.parse(d).downloads || 0),
+        get('https://api.npmjs.org/downloads/point/last-month/dev-crew').then(d => JSON.parse(d).downloads || 0),
+      ]);
+      console.log('\n  \x1b[1m\x1b[96mDev-Crew npm Stats\x1b[0m');
+      console.log('  \x1b[90m' + '─'.repeat(30) + '\x1b[0m');
+      console.log(`  Yesterday:     \x1b[1m${day}\x1b[0m downloads`);
+      console.log(`  Last 7 days:   \x1b[1m${week}\x1b[0m downloads`);
+      console.log(`  Last 30 days:  \x1b[1m${month}\x1b[0m downloads`);
+      console.log(`\n  \x1b[90mhttps://www.npmjs.com/package/dev-crew\x1b[0m\n`);
+    } catch {
+      console.error('Failed to fetch stats. Check your internet connection.');
+    }
+  });
+
 program.parse();
