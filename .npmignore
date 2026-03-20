@@ -1,0 +1,10 @@
+src/
+bin/
+node_modules/
+.dev-crew/
+.git/
+.github/
+tsconfig.json
+tsup.config.ts
+dist/*.map
+.npmignore
