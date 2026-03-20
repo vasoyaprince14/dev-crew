@@ -13,6 +13,11 @@ export { ActionLayer } from './core/action-layer.js';
 export { DependencyGraph } from './core/dependency-graph.js';
 export { GitIntelligence } from './core/git-intelligence.js';
 export { QualityScorer } from './core/quality-scorer.js';
+export { ProviderBridge } from './core/provider-bridge.js';
+export { parseNaturalInput } from './core/nlp-router.js';
+
+// UI
+export { TerminalUI } from './ui/terminal-ui.js';
 
 // Agents
 export { BaseAgent } from './agents/base-agent.js';

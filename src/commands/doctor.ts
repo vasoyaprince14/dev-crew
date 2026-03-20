@@ -1,4 +1,4 @@
-import { ClaudeBridge } from '../core/claude-bridge.js';
+import { ProviderBridge } from '../core/provider-bridge.js';
 import { ConfigManager } from '../core/config-manager.js';
 import { ProjectDetector } from '../core/project-detector.js';
 import { Logger } from '../utils/logger.js';
@@ -8,16 +8,20 @@ export async function doctorCommand(): Promise<void> {
 
   logger.header('Dev-Crew Doctor');
 
-  // Check AI engine
-  const bridge = new ClaudeBridge();
-  const installed = await bridge.verify();
-  if (installed) {
-    const version = await bridge.getVersion();
-    logger.success(`AI Engine: installed (${version})`);
+  // Check AI providers
+  const bridge = new ProviderBridge();
+  const providers = await bridge.detectProviders();
+  const available = providers.filter(p => p.status === 'available' && p.id !== 'simulation');
+
+  if (available.length > 0) {
+    for (const p of available) {
+      logger.success(`AI Provider: ${p.name} (available)`);
+    }
   } else {
-    logger.error('AI Engine: NOT FOUND');
-    logger.info('  Install: npm install -g @anthropic-ai/claude-code');
+    logger.warn('No AI providers found. Simulation mode available.');
+    logger.info('  Install one: npm install -g @anthropic-ai/claude-code');
   }
+  const installed = available.length > 0;
 
   // Check config
   const config = new ConfigManager();

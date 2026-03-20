@@ -1,4 +1,4 @@
-import { ClaudeBridge } from '../core/claude-bridge.js';
+import { ProviderBridge } from '../core/provider-bridge.js';
 import { ContextEngine } from '../core/context-engine.js';
 import { TokenOptimizer } from '../core/token-optimizer.js';
 import { ResponseParser } from '../core/response-parser.js';
@@ -6,8 +6,23 @@ import type { AgentConfig, AgentInput, AgentResult, ParsedResponse } from '../ty
 import type { ProjectInfo } from '../types/config.js';
 import { Logger } from '../utils/logger.js';
 
+// Shared provider instance across all agents in a session
+let sharedProvider: ProviderBridge | null = null;
+
+export function setSharedProvider(provider: ProviderBridge): void {
+  sharedProvider = provider;
+}
+
+export function getSharedProvider(): ProviderBridge {
+  if (!sharedProvider) {
+    sharedProvider = new ProviderBridge();
+    sharedProvider.autoSelect();
+  }
+  return sharedProvider;
+}
+
 export abstract class BaseAgent {
-  protected bridge: ClaudeBridge;
+  protected bridge: ProviderBridge;
   protected context: ContextEngine;
   protected optimizer: TokenOptimizer;
   protected parser: ResponseParser;
@@ -17,7 +32,7 @@ export abstract class BaseAgent {
   protected feedback: string[];
 
   constructor(config: AgentConfig, projectInfo: ProjectInfo, feedback: string[] = []) {
-    this.bridge = new ClaudeBridge();
+    this.bridge = getSharedProvider();
     this.context = new ContextEngine();
     this.optimizer = new TokenOptimizer();
     this.parser = new ResponseParser();

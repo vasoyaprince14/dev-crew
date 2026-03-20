@@ -3,7 +3,7 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { ProjectDetector } from '../core/project-detector.js';
 import { ConfigManager } from '../core/config-manager.js';
-import { ClaudeBridge } from '../core/claude-bridge.js';
+import { ProviderBridge } from '../core/provider-bridge.js';
 import { Logger } from '../utils/logger.js';
 import { Spinner } from '../utils/spinner.js';
 import type { DevCrewConfig } from '../types/config.js';
@@ -20,19 +20,18 @@ export async function initCommand(): Promise<void> {
   }
 
   // Check AI engine
-  spinner.start('Checking AI engine installation...');
-  const bridge = new ClaudeBridge();
-  const engineInstalled = await bridge.verify();
+  spinner.start('Checking AI providers...');
+  const bridge = new ProviderBridge();
+  const providerInfo = await bridge.autoSelect();
 
-  if (!engineInstalled) {
-    spinner.fail('AI engine not found');
-    logger.error('AI engine is required. Install it first:');
+  if (providerInfo.id === 'simulation') {
+    spinner.succeed('No AI providers found — simulation mode enabled');
+    logger.warn('Install an AI provider for real results:');
     logger.info('  npm install -g @anthropic-ai/claude-code');
-    process.exit(1);
+  } else {
+    const version = await bridge.getVersion();
+    spinner.succeed(`AI provider: ${providerInfo.name} (${version})`);
   }
-
-  const version = await bridge.getVersion();
-  spinner.succeed(`AI engine found (${version})`);
 
   // Detect project
   spinner.start('Detecting project...');
