@@ -47,8 +47,11 @@ export abstract class BaseAgent {
   abstract parseResponse(raw: string): ParsedResponse;
 
   async execute(input: AgentInput): Promise<AgentResult> {
+    const onProgress = input.onProgress as ((step: string) => void) | undefined;
+
     // 1. Gather context (skip heavy gathering for simple queries with no files)
     const hasFiles = input.files && input.files.length > 0;
+    onProgress?.('Gathering context...');
     const contextData = await this.context.gather({
       files: input.files,
       projectInfo: this.projectInfo,
@@ -62,12 +65,13 @@ export abstract class BaseAgent {
 
     // 3. Estimate tokens
     const estimate = this.optimizer.estimate(prompt);
-    this.logger.debug(`Estimated tokens: ${estimate}`);
+    onProgress?.(`Prompt ready (~${estimate.toLocaleString()} tokens)`);
     if (estimate > 50000) {
       this.logger.warn(`This operation will use ~${estimate.toLocaleString()} tokens`);
     }
 
     // 4. Send to AI engine
+    onProgress?.('Sending to AI provider...');
     const response = await this.bridge.send(prompt, {
       systemPrompt: this.getSystemPrompt(),
       maxTokens: this.config.maxTokens ?? 8192,

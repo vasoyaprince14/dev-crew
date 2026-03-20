@@ -227,35 +227,64 @@ export async function interactiveCommand(): Promise<void> {
     console.log(`\x1b[90m  │\x1b[0m`);
     console.log(`\x1b[90m  ├─ Execution\x1b[0m`);
 
-    spinner.start(`Gathering context & sending to ${providerInfo.name}...`);
+    spinner.start('Gathering context...');
 
     const startTime = Date.now();
 
+    // Live timer that updates the spinner every 5 seconds
+    const timerInterval = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      spinner.update(`Waiting for AI response... (${elapsed}s)`);
+    }, 5000);
+
     try {
-      const timeoutMs = 90_000;
+      const timeoutMs = 180_000; // 3 minutes
+      let streamStarted = false;
       const result = await Promise.race([
         agent.execute({
           query: parsed.query,
           files: parsed.filePath ? [parsed.filePath] : undefined,
+          streaming: true,
+          onStream: (chunk: string) => {
+            if (!streamStarted) {
+              clearInterval(timerInterval);
+              spinner.succeed('AI responding...');
+              console.log();
+              console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
+              streamStarted = true;
+            }
+            process.stdout.write(chunk);
+          },
+          onProgress: (step: string) => {
+            spinner.update(step);
+          },
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Agent timed out after 90s. Try a more specific file path.')), timeoutMs),
+          setTimeout(() => reject(new Error('Agent timed out after 3 minutes. The AI provider may be overloaded.')), timeoutMs),
         ),
       ]);
 
+      clearInterval(timerInterval);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      spinner.succeed(`Response received in ${elapsed}s`);
 
-      console.log(`\x1b[90m  │  Tokens:  ~${(result.tokensUsed || 0).toLocaleString()}\x1b[0m`);
-      console.log(`\x1b[90m  └─ \x1b[32m✓ Done\x1b[0m`);
+      if (streamStarted) {
+        // Streaming completed
+        console.log();
+        console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
+      } else {
+        // Non-streaming response
+        spinner.succeed(`Response received in ${elapsed}s`);
+        console.log();
+        console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
+        console.log(result.raw);
+        console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
+      }
+
       console.log();
-
-      // Step 4: Show result
-      console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
-      console.log(result.raw);
-      console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
+      console.log(`\x1b[90m  ${elapsed}s | ~${(result.tokensUsed || 0).toLocaleString()} tokens | ${parsed.agentId} agent\x1b[0m`);
       console.log();
     } catch (err) {
+      clearInterval(timerInterval);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       spinner.fail(`Failed after ${elapsed}s`);
 
