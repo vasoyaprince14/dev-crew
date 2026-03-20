@@ -47,12 +47,13 @@ export abstract class BaseAgent {
   abstract parseResponse(raw: string): ParsedResponse;
 
   async execute(input: AgentInput): Promise<AgentResult> {
-    // 1. Gather context
+    // 1. Gather context (skip heavy gathering for simple queries with no files)
+    const hasFiles = input.files && input.files.length > 0;
     const contextData = await this.context.gather({
       files: input.files,
       projectInfo: this.projectInfo,
-      includeSchema: this.config.includeSchema ?? true,
-      includeConfig: this.config.includeConfig ?? true,
+      includeSchema: hasFiles ? (this.config.includeSchema ?? true) : false,
+      includeConfig: hasFiles ? (this.config.includeConfig ?? true) : false,
       maxDepth: this.config.contextDepth ?? 2,
     });
 

@@ -98,13 +98,34 @@ export async function interactiveCommand(): Promise<void> {
 
   rl.prompt();
 
-  rl.on('line', async (line: string) => {
-    const input = line.trim();
+  let busy = false;
+  const queue: string[] = [];
 
-    if (!input) {
+  function processNext(): void {
+    if (queue.length === 0) {
+      busy = false;
       rl.prompt();
       return;
     }
+    const next = queue.shift()!;
+    handleInput(next);
+  }
+
+  rl.on('line', (line: string) => {
+    const input = line.trim();
+    if (!input) {
+      if (!busy) rl.prompt();
+      return;
+    }
+    if (busy) {
+      queue.push(input);
+      return;
+    }
+    busy = true;
+    handleInput(input);
+  });
+
+  async function handleInput(input: string): Promise<void> {
 
     // ---- Slash commands ----
     if (input.startsWith('/')) {
@@ -112,7 +133,7 @@ export async function interactiveCommand(): Promise<void> {
 
       if (cmd === '/help') {
         showHelp();
-        rl.prompt();
+        processNext();
         return;
       }
 
@@ -126,7 +147,7 @@ export async function interactiveCommand(): Promise<void> {
           );
         }
         console.log();
-        rl.prompt();
+        processNext();
         return;
       }
 
@@ -145,7 +166,7 @@ export async function interactiveCommand(): Promise<void> {
           `\n  \x1b[90mActive: ${providerInfo.name}\x1b[0m`,
         );
         console.log();
-        rl.prompt();
+        processNext();
         return;
       }
 
@@ -164,7 +185,7 @@ export async function interactiveCommand(): Promise<void> {
         console.log(`  Monorepo:       ${projectInfo.monorepo ? 'yes' : 'no'}`);
         console.log(`  Structure:      ${projectInfo.structure}`);
         console.log();
-        rl.prompt();
+        processNext();
         return;
       }
 
@@ -175,7 +196,7 @@ export async function interactiveCommand(): Promise<void> {
       }
 
       logger.warn(`Unknown command: ${input}. Type /help for available commands.`);
-      rl.prompt();
+      processNext();
       return;
     }
 
@@ -188,7 +209,7 @@ export async function interactiveCommand(): Promise<void> {
     const agent = registry.create(parsed.agentId, projectInfo, undefined, feedback);
     if (!agent) {
       logger.error(`Agent "${parsed.agentId}" could not be created.`);
-      rl.prompt();
+      processNext();
       return;
     }
 
@@ -196,14 +217,14 @@ export async function interactiveCommand(): Promise<void> {
 
     try {
       // Add a timeout so it doesn't hang forever
-      const timeoutMs = 120_000; // 2 minutes
+      const timeoutMs = 90_000; // 90 seconds
       const result = await Promise.race([
         agent.execute({
           query: parsed.query,
           files: parsed.filePath ? [parsed.filePath] : undefined,
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Agent timed out after 2 minutes. Try a more specific query.')), timeoutMs),
+          setTimeout(() => reject(new Error('Agent timed out. Try a more specific query like "review src/app.ts"')), timeoutMs),
         ),
       ]);
 
@@ -222,8 +243,8 @@ export async function interactiveCommand(): Promise<void> {
       console.log();
     }
 
-    rl.prompt();
-  });
+    processNext();
+  }
 
   rl.on('close', () => {
     process.exit(0);
