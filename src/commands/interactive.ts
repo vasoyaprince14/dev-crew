@@ -203,43 +203,64 @@ export async function interactiveCommand(): Promise<void> {
     // ---- Natural language → agent execution ----
     const parsed = parseNaturalInput(input, knownAgentIds);
 
-    // Load agent-specific feedback from config
-    const feedback = configManager.getFeedback(parsed.agentId);
+    // Step 1: Show routing
+    console.log();
+    console.log(`\x1b[90m  ┌─ Routing\x1b[0m`);
+    console.log(`\x1b[90m  │  Agent:   \x1b[36m${parsed.agentId}\x1b[0m`);
+    console.log(`\x1b[90m  │  Query:   \x1b[0m${parsed.query}`);
+    if (parsed.filePath) {
+      console.log(`\x1b[90m  │  File:    \x1b[0m${parsed.filePath}`);
+    }
 
+    // Step 2: Load agent
+    const feedback = configManager.getFeedback(parsed.agentId);
     const agent = registry.create(parsed.agentId, projectInfo, undefined, feedback);
     if (!agent) {
-      logger.error(`Agent "${parsed.agentId}" could not be created.`);
+      console.log(`\x1b[90m  └─ \x1b[31m✗ Agent "${parsed.agentId}" not found\x1b[0m`);
+      console.log();
       processNext();
       return;
     }
+    console.log(`\x1b[90m  │  Status:  \x1b[32m✓ Agent loaded\x1b[0m`);
 
-    spinner.start(`Running ${parsed.agentId} agent... (this may take 15-60s)`);
+    // Step 3: Gather context & send to AI
+    console.log(`\x1b[90m  │\x1b[0m`);
+    console.log(`\x1b[90m  ├─ Execution\x1b[0m`);
+
+    spinner.start(`Gathering context & sending to ${providerInfo.name}...`);
+
+    const startTime = Date.now();
 
     try {
-      // Add a timeout so it doesn't hang forever
-      const timeoutMs = 90_000; // 90 seconds
+      const timeoutMs = 90_000;
       const result = await Promise.race([
         agent.execute({
           query: parsed.query,
           files: parsed.filePath ? [parsed.filePath] : undefined,
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Agent timed out. Try a more specific query like "review src/app.ts"')), timeoutMs),
+          setTimeout(() => reject(new Error('Agent timed out after 90s. Try a more specific file path.')), timeoutMs),
         ),
       ]);
 
-      spinner.succeed(`${parsed.agentId} agent completed`);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      spinner.succeed(`Response received in ${elapsed}s`);
 
+      console.log(`\x1b[90m  │  Tokens:  ~${(result.tokensUsed || 0).toLocaleString()}\x1b[0m`);
+      console.log(`\x1b[90m  └─ \x1b[32m✓ Done\x1b[0m`);
       console.log();
+
+      // Step 4: Show result
+      console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
       console.log(result.raw);
-      console.log();
-      logger.info(
-        `Agent: ${result.agent} | Time: ${(result.duration / 1000).toFixed(1)}s | Tokens: ~${(result.tokensUsed || 0).toLocaleString()}`,
-      );
+      console.log('\x1b[90m──────────────────────────────────────────\x1b[0m');
       console.log();
     } catch (err) {
-      spinner.fail(`${parsed.agentId} agent failed`);
-      logger.error(err instanceof Error ? err.message : String(err));
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      spinner.fail(`Failed after ${elapsed}s`);
+
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.log(`\x1b[90m  └─ \x1b[31m✗ ${errMsg}\x1b[0m`);
       console.log();
     }
 
