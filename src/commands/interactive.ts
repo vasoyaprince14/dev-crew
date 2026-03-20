@@ -192,15 +192,22 @@ export async function interactiveCommand(): Promise<void> {
       return;
     }
 
-    spinner.start(`Running ${parsed.agentId} agent...`);
+    spinner.start(`Running ${parsed.agentId} agent... (this may take 15-60s)`);
 
     try {
-      const result = await agent.execute({
-        query: parsed.query,
-        files: parsed.filePath ? [parsed.filePath] : undefined,
-      });
+      // Add a timeout so it doesn't hang forever
+      const timeoutMs = 120_000; // 2 minutes
+      const result = await Promise.race([
+        agent.execute({
+          query: parsed.query,
+          files: parsed.filePath ? [parsed.filePath] : undefined,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Agent timed out after 2 minutes. Try a more specific query.')), timeoutMs),
+        ),
+      ]);
 
-      spinner.stop();
+      spinner.succeed(`${parsed.agentId} agent completed`);
 
       console.log();
       console.log(result.raw);
@@ -210,7 +217,7 @@ export async function interactiveCommand(): Promise<void> {
       );
       console.log();
     } catch (err) {
-      spinner.fail('Agent execution failed');
+      spinner.fail(`${parsed.agentId} agent failed`);
       logger.error(err instanceof Error ? err.message : String(err));
       console.log();
     }
