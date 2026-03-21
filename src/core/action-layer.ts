@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-import readline from 'node:readline';
 import { formatDiff, colorizeDiff } from '../utils/diff-formatter.js';
 import { Logger } from '../utils/logger.js';
 
@@ -74,29 +73,39 @@ export class ActionLayer {
       return Promise.resolve(false);
     }
 
-    // Ensure stdin is flowing — previous readline.close() can pause it
-    if (process.stdin.isPaused()) {
-      process.stdin.resume();
-    }
-
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
     return new Promise((resolve) => {
-      let answered = false;
+      // Write prompt directly to stdout — avoids readline entirely
+      // This prevents conflicts with Discovery's readline closing stdin
+      process.stdout.write(`${message} (y/n) `);
 
-      rl.question(`${message} (y/n) `, (answer) => {
-        answered = true;
-        rl.close();
-        resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-      });
+      // Ensure stdin is in the right state for raw reading
+      if (process.stdin.isPaused()) {
+        process.stdin.resume();
+      }
+      const wasRaw = process.stdin.isRaw;
+      process.stdin.setRawMode(true);
+      process.stdin.setEncoding('utf8');
 
-      // Handle EOF (Ctrl+D) — only if question wasn't answered yet
-      rl.on('close', () => {
-        if (!answered) resolve(false);
-      });
+      const onData = (key: string) => {
+        process.stdin.setRawMode(wasRaw ?? false);
+        process.stdin.removeListener('data', onData);
+        process.stdin.pause();
+
+        const char = key.toLowerCase();
+        // Echo the key and newline
+        process.stdout.write(char + '\n');
+
+        if (char === 'y') {
+          resolve(true);
+        } else if (char === '\x03') {
+          // Ctrl+C
+          resolve(false);
+        } else {
+          resolve(false);
+        }
+      };
+
+      process.stdin.on('data', onData);
     });
   }
 }

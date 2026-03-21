@@ -179,14 +179,23 @@ export async function createCommand(description: string, options: CreateOptions)
   // Step 8: Ask for feedback
   console.log();
   if (process.stdin.isTTY) {
-    const rl = await import('node:readline');
-    const iface = rl.createInterface({ input: process.stdin, output: process.stdout });
+    process.stdout.write(chalk.dim('  Rate your experience (1-5, Enter to skip): '));
     const rating = await new Promise<string>((resolve) => {
-      iface.question(chalk.dim('  Rate your experience (1-5, Enter to skip): '), (answer) => {
-        iface.close();
-        resolve(answer.trim());
-      });
-      iface.on('close', () => resolve(''));
+      if (process.stdin.isPaused()) process.stdin.resume();
+      const wasRaw = process.stdin.isRaw;
+      process.stdin.setRawMode(true);
+      process.stdin.setEncoding('utf8');
+      const onData = (key: string) => {
+        process.stdin.setRawMode(wasRaw ?? false);
+        process.stdin.removeListener('data', onData);
+        process.stdin.pause();
+        const char = key.trim();
+        process.stdout.write(char + '\n');
+        if (char === '\x03') { resolve(''); return; } // Ctrl+C
+        if (char === '\r' || char === '\n' || char === '') { resolve(''); return; }
+        resolve(char);
+      };
+      process.stdin.on('data', onData);
     });
     if (rating && /^[1-5]$/.test(rating)) {
       try {
