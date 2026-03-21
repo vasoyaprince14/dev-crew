@@ -20,16 +20,14 @@ interface ProviderConfig {
   id: string;
   name: string;
   color: string;
-  /** Command used to check installation (`<command> --version`). */
   command: string;
-  /** Priority for auto-selection – lower is better. */
   priority: number;
-  /** Build the CLI args for a prompt + options. */
   buildArgs: (prompt: string, options: ClaudeOptions) => string[];
 }
 
 // ---------------------------------------------------------------------------
-// CLI-based provider definitions (subprocess spawning)
+// CLI-based provider definitions
+// Dev-Crew works ON TOP of these tools — no extra API keys needed.
 // ---------------------------------------------------------------------------
 
 const CLI_PROVIDERS: ProviderConfig[] = [
@@ -38,7 +36,7 @@ const CLI_PROVIDERS: ProviderConfig[] = [
     name: 'Claude Code',
     color: '#d97706',
     command: 'claude',
-    priority: 2,
+    priority: 1, // Default — users already have this
     buildArgs(prompt, options) {
       const args = ['--print'];
       if (options.systemPrompt) args.push('--system-prompt', options.systemPrompt);
@@ -52,7 +50,7 @@ const CLI_PROVIDERS: ProviderConfig[] = [
     name: 'Aider',
     color: '#10b981',
     command: 'aider',
-    priority: 3,
+    priority: 2,
     buildArgs(prompt, options) {
       const args = ['--message', prompt, '--no-git', '--yes'];
       if (options.systemPrompt) args.push('--system-prompt', options.systemPrompt);
@@ -64,7 +62,7 @@ const CLI_PROVIDERS: ProviderConfig[] = [
     name: 'GitHub Copilot',
     color: '#6366f1',
     command: 'gh',
-    priority: 4,
+    priority: 3,
     buildArgs(prompt, _options) {
       return ['copilot', 'suggest', '-t', 'shell', prompt];
     },
@@ -74,7 +72,7 @@ const CLI_PROVIDERS: ProviderConfig[] = [
     name: 'OpenAI CLI',
     color: '#ef4444',
     command: 'openai',
-    priority: 5,
+    priority: 4,
     buildArgs(prompt, options) {
       const args = ['api', 'chat_completions.create', '-m', 'gpt-4o', '-g', 'user', prompt];
       if (options.maxTokens) args.push('--max-tokens', String(options.maxTokens));
@@ -86,7 +84,7 @@ const CLI_PROVIDERS: ProviderConfig[] = [
     name: 'Ollama',
     color: '#8b5cf6',
     command: 'ollama',
-    priority: 6,
+    priority: 5,
     buildArgs(prompt, options) {
       const args = ['run', 'llama3'];
       if (options.systemPrompt) args.push('--system', options.systemPrompt);
@@ -170,7 +168,7 @@ function generateSimulationResponse(prompt: string): string {
 
   return JSON.stringify({
     response: 'Simulated AI response',
-    note: 'No real AI provider is installed. Set ANTHROPIC_API_KEY or install: claude, aider, gh copilot, openai, ollama',
+    note: 'Install Claude Code, Aider, Ollama, or another AI provider to get real responses.',
     prompt_received: prompt.slice(0, 120),
   }, null, 2);
 }
@@ -185,7 +183,7 @@ export class ProviderBridge {
   private currentProvider: ProviderConfig | null = null;
   private useSimulation = false;
   private useDirectAPI = false;
-  private anthropicClient: any = null; // Lazy-loaded Anthropic SDK
+  private anthropicClient: any = null;
 
   constructor(verbose = false) {
     this.optimizer = new TokenOptimizer();
@@ -199,15 +197,7 @@ export class ProviderBridge {
   async detectProviders(): Promise<ProviderInfo[]> {
     const results: ProviderInfo[] = [];
 
-    // Check direct API first
-    const apiStatus = this.hasAnthropicKey() ? 'available' as const : 'not-installed' as const;
-    results.push({
-      id: 'claude-api',
-      name: 'Claude API (Direct)',
-      status: apiStatus,
-      color: '#d97706',
-    });
-
+    // CLI providers first (no extra setup needed)
     for (const provider of CLI_PROVIDERS) {
       const status = await this.checkInstalled(provider.command);
       results.push({
@@ -218,6 +208,15 @@ export class ProviderBridge {
       });
     }
 
+    // Direct API — optional upgrade for power users
+    const apiAvailable = this.hasAnthropicKey() && await this.hasAnthropicSDK();
+    results.push({
+      id: 'claude-api',
+      name: 'Claude API (Direct)',
+      status: apiAvailable ? 'available' : 'not-installed',
+      color: '#d97706',
+    });
+
     results.push({ ...SIMULATION_PROVIDER });
     return results;
   }
@@ -227,21 +226,7 @@ export class ProviderBridge {
   // -----------------------------------------------------------------------
 
   async autoSelect(): Promise<ProviderInfo> {
-    // Priority 1: Direct Claude API (if ANTHROPIC_API_KEY is set)
-    if (this.hasAnthropicKey()) {
-      this.useDirectAPI = true;
-      this.useSimulation = false;
-      this.currentProvider = null;
-      this.logger.debug('Auto-selected provider: Claude API (Direct)');
-      return {
-        id: 'claude-api',
-        name: 'Claude API (Direct)',
-        status: 'available',
-        color: '#d97706',
-      };
-    }
-
-    // Priority 2+: CLI providers
+    // Priority 1: CLI providers (Claude Code first — no extra setup for user)
     const sorted = [...CLI_PROVIDERS].sort((a, b) => a.priority - b.priority);
     for (const provider of sorted) {
       const status = await this.checkInstalled(provider.command);
@@ -257,6 +242,20 @@ export class ProviderBridge {
           color: provider.color,
         };
       }
+    }
+
+    // Priority 2: Direct API (if user has API key + SDK installed)
+    if (this.hasAnthropicKey() && await this.hasAnthropicSDK()) {
+      this.useDirectAPI = true;
+      this.useSimulation = false;
+      this.currentProvider = null;
+      this.logger.debug('Auto-selected provider: Claude API (Direct)');
+      return {
+        id: 'claude-api',
+        name: 'Claude API (Direct)',
+        status: 'available',
+        color: '#d97706',
+      };
     }
 
     // Fallback: simulation
@@ -278,7 +277,12 @@ export class ProviderBridge {
     if (id === 'claude-api') {
       if (!this.hasAnthropicKey()) {
         throw new Error(
-          'ANTHROPIC_API_KEY not set. Get one at https://console.anthropic.com/settings/keys',
+          'ANTHROPIC_API_KEY not set. This is optional — Dev-Crew works on top of Claude Code by default.',
+        );
+      }
+      if (!await this.hasAnthropicSDK()) {
+        throw new Error(
+          'Anthropic SDK not installed. Run: npm install -g @anthropic-ai/sdk',
         );
       }
       this.useDirectAPI = true;
@@ -295,7 +299,7 @@ export class ProviderBridge {
     const provider = CLI_PROVIDERS.find((p) => p.id === id);
     if (!provider) {
       throw new Error(
-        `Unknown provider "${id}". Available: claude-api, ${CLI_PROVIDERS.map((p) => p.id).join(', ')}, simulation`,
+        `Unknown provider "${id}". Available: ${CLI_PROVIDERS.map((p) => p.id).join(', ')}, claude-api, simulation`,
       );
     }
 
@@ -341,9 +345,7 @@ export class ProviderBridge {
   // -----------------------------------------------------------------------
 
   async verify(): Promise<boolean> {
-    if (this.useDirectAPI) {
-      return this.hasAnthropicKey();
-    }
+    if (this.useDirectAPI) return this.hasAnthropicKey();
     if (this.useSimulation) return true;
     if (!this.currentProvider) return false;
 
@@ -373,7 +375,7 @@ export class ProviderBridge {
   // -----------------------------------------------------------------------
 
   async send(prompt: string, options: ClaudeOptions = {}): Promise<ClaudeResponse> {
-    // Direct API path (best — no subprocess overhead, real streaming, real token counts)
+    // Direct API (optional power-user path)
     if (this.useDirectAPI) {
       return this.sendDirectAPI(prompt, options);
     }
@@ -383,13 +385,101 @@ export class ProviderBridge {
       return this.simulatedSend(prompt);
     }
 
-    // CLI subprocess path
+    // Default: CLI subprocess (works on top of Claude Code, etc.)
     return this.sendCLI(prompt, options);
   }
 
   // -----------------------------------------------------------------------
-  // Direct Anthropic API
+  // Direct Anthropic API (optional — only when user has API key + SDK)
   // -----------------------------------------------------------------------
+
+  private async sendDirectAPI(prompt: string, options: ClaudeOptions): Promise<ClaudeResponse> {
+    const startTime = Date.now();
+
+    let client: any;
+    try {
+      client = await this.getAnthropicClient();
+    } catch {
+      // SDK not available — fall back to CLI or simulation
+      this.useDirectAPI = false;
+      this.logger.debug('Anthropic SDK not available, falling back');
+      return this.send(prompt, options);
+    }
+
+    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+    const maxTokens = options.maxTokens || 4096;
+
+    const messages: Array<{ role: string; content: string }> = [
+      { role: 'user', content: prompt },
+    ];
+
+    try {
+      // Streaming path
+      if (options.streaming && options.onStream) {
+        let content = '';
+        let inputTokens = 0;
+        let outputTokens = 0;
+
+        const stream = await client.messages.stream({
+          model,
+          max_tokens: maxTokens,
+          system: options.systemPrompt || undefined,
+          messages,
+        });
+
+        for await (const event of stream) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            content += event.delta.text;
+            try { options.onStream(event.delta.text); } catch { /* callback error */ }
+          }
+        }
+
+        const finalMessage = await stream.finalMessage();
+        inputTokens = finalMessage.usage?.input_tokens || 0;
+        outputTokens = finalMessage.usage?.output_tokens || 0;
+
+        return {
+          content: content.trim(),
+          duration: Date.now() - startTime,
+          tokensUsed: inputTokens + outputTokens,
+        };
+      }
+
+      // Non-streaming path
+      const response = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: options.systemPrompt || undefined,
+        messages,
+      });
+
+      const content = response.content
+        .filter((block: any) => block.type === 'text')
+        .map((block: any) => block.text)
+        .join('');
+
+      const tokensUsed = (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
+
+      return {
+        content: content.trim(),
+        duration: Date.now() - startTime,
+        tokensUsed,
+      };
+    } catch (err: any) {
+      // API errors — give helpful messages
+      const msg = err?.message || String(err);
+      if (msg.includes('401') || msg.includes('authentication')) {
+        throw new Error('Invalid ANTHROPIC_API_KEY. Check your key at console.anthropic.com');
+      }
+      if (msg.includes('429') || msg.includes('rate')) {
+        throw new Error('Rate limited by Claude API. Wait a moment and try again.');
+      }
+      if (msg.includes('529') || msg.includes('overloaded')) {
+        throw new Error('Claude API is overloaded. Try again in a few seconds.');
+      }
+      throw new Error(`Claude API error: ${msg.slice(0, 200)}`);
+    }
+  }
 
   private async getAnthropicClient(): Promise<any> {
     if (this.anthropicClient) return this.anthropicClient;
@@ -398,77 +488,8 @@ export class ProviderBridge {
     return this.anthropicClient;
   }
 
-  private async sendDirectAPI(prompt: string, options: ClaudeOptions): Promise<ClaudeResponse> {
-    const startTime = Date.now();
-    const client = await this.getAnthropicClient();
-
-    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
-    const maxTokens = options.maxTokens || 4096;
-
-    // Build messages
-    const messages: Array<{ role: string; content: string }> = [
-      { role: 'user', content: prompt },
-    ];
-
-    // Streaming path — real token-by-token streaming from Claude API
-    if (options.streaming && options.onStream) {
-      let content = '';
-      let inputTokens = 0;
-      let outputTokens = 0;
-
-      const stream = await client.messages.stream({
-        model,
-        max_tokens: maxTokens,
-        system: options.systemPrompt || undefined,
-        messages,
-      });
-
-      for await (const event of stream) {
-        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          content += event.delta.text;
-          try { options.onStream(event.delta.text); } catch { /* callback error */ }
-        }
-        if (event.type === 'message_delta' && (event as any).usage) {
-          outputTokens = (event as any).usage.output_tokens || 0;
-        }
-      }
-
-      // Get final message for accurate token counts
-      const finalMessage = await stream.finalMessage();
-      inputTokens = finalMessage.usage?.input_tokens || 0;
-      outputTokens = finalMessage.usage?.output_tokens || 0;
-
-      return {
-        content: content.trim(),
-        duration: Date.now() - startTime,
-        tokensUsed: inputTokens + outputTokens,
-      };
-    }
-
-    // Non-streaming path
-    const response = await client.messages.create({
-      model,
-      max_tokens: maxTokens,
-      system: options.systemPrompt || undefined,
-      messages,
-    });
-
-    const content = response.content
-      .filter((block: any) => block.type === 'text')
-      .map((block: any) => block.text)
-      .join('');
-
-    const tokensUsed = (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
-
-    return {
-      content: content.trim(),
-      duration: Date.now() - startTime,
-      tokensUsed,
-    };
-  }
-
   // -----------------------------------------------------------------------
-  // CLI subprocess path
+  // CLI subprocess path (default — works on top of Claude Code, etc.)
   // -----------------------------------------------------------------------
 
   private sendCLI(prompt: string, options: ClaudeOptions): Promise<ClaudeResponse> {
@@ -564,6 +585,15 @@ export class ProviderBridge {
 
   private hasAnthropicKey(): boolean {
     return !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 10);
+  }
+
+  private async hasAnthropicSDK(): Promise<boolean> {
+    try {
+      await import('@anthropic-ai/sdk');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private simulatedSend(prompt: string): Promise<ClaudeResponse> {

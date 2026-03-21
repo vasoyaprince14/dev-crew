@@ -12,4 +12,5 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   shims: true,
+  external: ['@anthropic-ai/sdk'], // Optional dep — loaded dynamically at runtime
 });

@@ -391,48 +391,52 @@ jobs:
 
 ## 🔌 Multi-Provider Support
 
-Dev-Crew auto-detects installed AI tools and picks the best one:
+Dev-Crew works **on top of existing AI tools** — no extra API keys needed. Just install Claude Code (or any provider) and Dev-Crew uses it automatically.
 
-| Provider | Detection | Priority | Streaming | Real Token Counts |
-|---|---|---|---|---|
-| **Claude API (Direct)** | `ANTHROPIC_API_KEY` env var | 1 (highest) | ✅ Real | ✅ Exact |
-| **Claude Code** | `claude --version` | 2 | ✅ Chunked | ❌ Estimated |
-| **Aider** | `aider --version` | 3 | ❌ | ❌ Estimated |
-| **GitHub Copilot** | `gh copilot` | 4 | ❌ | ❌ Estimated |
-| **OpenAI CLI** | `openai --version` | 5 | ❌ | ❌ Estimated |
-| **Ollama** | `ollama --version` | 6 | ❌ | ❌ Estimated |
-| **Simulation** | Always available | Fallback | — | — |
+| Provider | Detection | Priority | Notes |
+|---|---|---|---|
+| **Claude Code** | `claude --version` | 1 (default) | No extra setup — just works |
+| **Aider** | `aider --version` | 2 | |
+| **GitHub Copilot** | `gh copilot` | 3 | |
+| **OpenAI CLI** | `openai --version` | 4 | |
+| **Ollama** | `ollama --version` | 5 | Free, runs locally |
+| **Claude API** | `ANTHROPIC_API_KEY` | Optional | Direct API — real streaming, exact tokens |
+| **Simulation** | Always available | Fallback | Works without any AI installed |
 
-### Direct Claude API (Recommended)
-
-The fastest and most efficient way to use Dev-Crew. No subprocess overhead — direct API calls with real streaming and exact token counts.
+### Default Setup (Zero Config)
 
 ```bash
-# Set your API key (get one at https://console.anthropic.com/settings/keys)
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# Dev-Crew automatically uses the direct API when the key is set
+# If you have Claude Code installed, Dev-Crew just works
+npm install -g dev-crew
 dev-crew
-
-# Optionally choose a specific model
-export ANTHROPIC_MODEL=claude-sonnet-4-20250514   # default
-export ANTHROPIC_MODEL=claude-haiku-4-5-20251001  # faster, cheaper
 ```
 
-### Other Providers
+### Optional: Direct Claude API
+
+For power users who want real token-by-token streaming and exact token counts:
+
+```bash
+# Optional — only if you want direct API access
+export ANTHROPIC_API_KEY=sk-ant-...
+npm install @anthropic-ai/sdk
+
+# Then switch in interactive mode
+❯ /provider claude-api
+```
+
+### Switching Providers
 
 ```bash
 # Check available providers
 dev-crew doctor
 
-# Switch provider in interactive mode
-❯ /provider claude-api     # Direct API (needs ANTHROPIC_API_KEY)
-❯ /provider claude-code    # Claude Code CLI
-❯ /provider ollama         # Local Ollama
+# Switch in interactive mode
+❯ /provider claude-code    # Default
+❯ /provider ollama         # Local, free
 ❯ /provider simulation     # No AI needed
 ```
 
-**No providers installed?** Dev-Crew runs in **simulation mode** — you can explore every command and see the output format without any AI backend.
+**No providers installed?** Dev-Crew runs in **simulation mode** — explore every command without any AI backend.
 
 ---
 
