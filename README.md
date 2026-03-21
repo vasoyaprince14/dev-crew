@@ -10,40 +10,64 @@
 <h1 align="center">Dev-Crew</h1>
 
 <p align="center">
-  <strong>24 AI Agents for Code Review, Testing, Security, DevOps & More — One CLI</strong><br/>
-  <sub>Works with Claude Code, OpenAI, GitHub Copilot, Aider, Ollama. Zero config. Free & open source.</sub>
+  <strong>Build Complete Apps from a Single Prompt — 25 AI Agents, One CLI</strong><br/>
+  <sub>App builder + code review, testing, security, DevOps. Works on Claude Code. Free & open source.</sub>
 </p>
 
 <p align="center">
+  <a href="#-build-an-app-in-one-command">App Builder</a> &bull;
   <a href="#-quick-start">Quick Start</a> &bull;
-  <a href="#-all-24-agents">All Agents</a> &bull;
+  <a href="#-all-25-agents">All Agents</a> &bull;
   <a href="#-interactive-mode">Interactive Mode</a> &bull;
   <a href="#-complete-guide">Guide</a> &bull;
-  <a href="#-multi-provider-support">Providers</a> &bull;
-  <a href="#-configuration">Config</a>
+  <a href="#-multi-provider-support">Providers</a>
 </p>
 
 ---
 
 ## What is Dev-Crew?
 
-Dev-Crew is a **free, open-source CLI** that gives you an entire AI development team from your terminal. Instead of one generic AI assistant, you get **24 specialized agents** — each an expert in their domain.
+Dev-Crew is a **free, open-source CLI** that builds complete apps from a single prompt — and gives you **25 specialized AI agents** for every stage of development.
 
 ```bash
 npm install -g dev-crew
-dev-crew
+
+# Build a complete app
+dev-crew create "build an uber clone with React and Node.js"
+
+# Or use any of the 25 agents
+dev-crew review @src/app.ts
+dev-crew test @src/auth.ts
+dev-crew security @src/
 ```
 
-That's it. Dev-Crew auto-detects your project stack and picks the best available AI provider. No API keys needed — simulation mode works out of the box.
+No API keys needed. Works on top of **Claude Code** (free). Zero config.
+
+---
+
+## Build an App in One Command
+
+```bash
+dev-crew create "build a todo app with Next.js and PostgreSQL"
+```
+
+Dev-Crew asks you a few questions, then runs a **6-stage AI pipeline**:
 
 ```
-  Dev-Crew v2.2.0
+  Step 1: Requirements    — AI business analyst scopes your app
+  Step 2: Architecture    — Tech lead designs the system
+  Step 3: Code Generation — App creator writes every file
+  Step 4: Database & API  — DB architect refines schema
+  Step 5: Tests           — Test agent generates test suite
+  Step 6: DevOps          — Docker, CI/CD, deployment configs
+```
 
-  my-app (typescript/nestjs)  on main
-  Claude Code · 24 agents · /help for commands
+Result: A complete, runnable project written to disk with `npm install` and `git init` done automatically.
 
-❯ review @src/controllers/auth.ts
-  ⠹ Checking git history... 4s
+```bash
+# Options
+dev-crew create "SaaS dashboard" --stack "nextjs+postgres" --yes
+dev-crew create "chat app" --output ./my-chat-app --no-install
 ```
 
 ---
@@ -52,7 +76,8 @@ That's it. Dev-Crew auto-detects your project stack and picks the best available
 
 | Problem | Dev-Crew's Answer |
 |---|---|
-| Generic AI gives surface-level reviews | **24 domain-expert agents** — security agent knows OWASP, DevOps agent knows Kubernetes |
+| Want to build a full app but don't know where to start | **`dev-crew create`** — describe your app, get production-ready code |
+| Generic AI gives surface-level reviews | **25 domain-expert agents** — security agent knows OWASP, DevOps agent knows Kubernetes |
 | Need to copy-paste code into ChatGPT | **Auto-detects** your framework, DB, ORM and builds context automatically |
 | Locked to one AI provider | **5 providers** — Claude, OpenAI, Copilot, Aider, Ollama + simulation fallback |
 | AI doesn't know your codebase | **Smart context engine** gathers files, schemas, configs, git history |
@@ -119,7 +144,7 @@ dev-crew ask "how does authentication work in this project?"
 
 ---
 
-## 🤖 All 24 Agents
+## 🤖 All 25 Agents
 
 ### Core Agents
 
@@ -208,7 +233,7 @@ dev-crew i       # shorthand
 | Command | Description |
 |---|---|
 | `/help` | Show all commands and usage examples |
-| `/agents` | List all 24 agents with descriptions |
+| `/agents` | List all 25 agents with descriptions |
 | `/clear` | Clear screen |
 | `/diff` | Show recent git changes |
 | `/provider <name>` | Switch AI provider |
@@ -578,6 +603,7 @@ Dev-Crew auto-detects your technology stack:
 ### Full-Stack
 | Command | Description |
 |---|---|
+| `dev-crew create <desc>` | **Build complete app from a prompt** |
 | `dev-crew scaffold <desc>` | Scaffold new project |
 | `dev-crew build <desc>` | Build a feature (`--stack`) |
 | `dev-crew fullstack-builder <desc>` | Full-stack architecture |
@@ -618,25 +644,64 @@ Dev-Crew auto-detects your technology stack:
 
 ---
 
+## What Can You Build with Dev-Crew?
+
+Dev-Crew can generate any type of application. Here are example prompts:
+
+```bash
+# SaaS & Web Apps
+dev-crew create "build a project management tool like Jira with Next.js and PostgreSQL"
+dev-crew create "build a SaaS analytics dashboard with Stripe billing"
+dev-crew create "build an e-commerce store with product catalog, cart, and checkout"
+dev-crew create "build a blog platform with markdown editor and SEO"
+
+# Marketplaces & Platforms
+dev-crew create "build an Airbnb clone with booking system and payments"
+dev-crew create "build a freelancer marketplace with job posting and bidding"
+dev-crew create "build a food delivery app like DoorDash"
+
+# Real-Time & Social
+dev-crew create "build a real-time chat app with WebSocket and file sharing"
+dev-crew create "build a social media platform with feeds, likes, and comments"
+dev-crew create "build a video conferencing app with screen sharing"
+
+# AI & Developer Tools
+dev-crew create "build an AI chatbot with RAG and document upload"
+dev-crew create "build a URL shortener with analytics dashboard"
+dev-crew create "build a REST API with authentication, rate limiting, and docs"
+
+# Mobile Apps
+dev-crew create "build a fitness tracking app with React Native"
+dev-crew create "build a ride-sharing app like Uber with real-time GPS"
+```
+
+Each prompt generates a **complete, runnable project** — not just boilerplate. You get real authentication, database schemas, API routes, frontend pages, tests, Docker configs, and CI/CD pipelines.
+
+---
+
 ## Architecture
 
 ```
 dev-crew
 ├── bin/dev-crew.ts              # CLI entry point (Commander.js)
 ├── src/
-│   ├── agents/                  # 24 specialized AI agents
+│   ├── agents/                  # 25 specialized AI agents
 │   │   ├── base-agent.ts        # Shared execution engine
 │   │   ├── registry.ts          # Agent factory
+│   │   ├── app-creator/         # Full app generation agent
 │   │   └── */agent.ts           # Individual agents
 │   ├── commands/                # CLI command handlers
+│   │   ├── create.ts            # App builder command
 │   │   └── interactive.ts       # REPL mode
+│   ├── pipelines/               # Multi-agent orchestration
+│   │   └── create-pipeline.ts   # 6-stage app build pipeline
 │   ├── core/
 │   │   ├── provider-bridge.ts   # Multi-provider abstraction
+│   │   ├── discovery.ts         # Interactive Q&A for app builder
+│   │   ├── file-writer.ts       # Safe file writing utility
 │   │   ├── nlp-router.ts        # Natural language → agent routing
 │   │   ├── context-engine.ts    # Smart context gathering
-│   │   ├── token-optimizer.ts   # Token compression
-│   │   ├── project-detector.ts  # Stack auto-detection
-│   │   └── config-manager.ts    # YAML config management
+│   │   └── project-detector.ts  # Stack auto-detection
 │   ├── features/                # Debt tracker, patterns, analytics
 │   └── types/                   # TypeScript interfaces
 ├── .github/workflows/           # CI + npm stats
@@ -647,23 +712,25 @@ dev-crew
 
 ## Dev-Crew vs Other Tools
 
-| Feature | Dev-Crew | Claude Code | GitHub Copilot | Cursor |
-|---|---|---|---|---|
-| Specialized agents (24) | ✅ | ❌ | ❌ | ❌ |
-| Code review with framework context | ✅ | ✅ | Limited | ✅ |
-| Security audit (OWASP) | ✅ | Manual | ❌ | ❌ |
-| Test generation | ✅ | Manual | ❌ | Limited |
-| DevOps/Docker/K8s guidance | ✅ | Manual | ❌ | ❌ |
-| Mobile (Flutter/RN/iOS/Android) | ✅ | ❌ | ❌ | ❌ |
-| DB schema design | ✅ | ❌ | ❌ | ❌ |
-| API architecture review | ✅ | ❌ | ❌ | ❌ |
-| Multi-provider (5 backends) | ✅ | Claude only | Copilot only | Multiple |
-| Works without API key | ✅ | ❌ | ❌ | ❌ |
-| Feedback/learning system | ✅ | ❌ | ❌ | ❌ |
-| Interactive REPL | ✅ | ✅ | ❌ | ✅ |
-| CI/CD integration | ✅ | ❌ | ❌ | ❌ |
-| Open source | ✅ | ❌ | ❌ | ❌ |
-| Price | **Free** | Paid | Paid | Paid |
+| Feature | Dev-Crew | Claude Code | GitHub Copilot | Cursor | v0 / Bolt |
+|---|---|---|---|---|---|
+| Build complete apps from prompt | ✅ | Manual | ❌ | ❌ | ✅ |
+| 25 specialized agents | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Code review with framework context | ✅ | ✅ | Limited | ✅ | ❌ |
+| Security audit (OWASP) | ✅ | Manual | ❌ | ❌ | ❌ |
+| Test generation | ✅ | Manual | ❌ | Limited | ❌ |
+| DevOps/Docker/K8s guidance | ✅ | Manual | ❌ | ❌ | ❌ |
+| Mobile (Flutter/RN/iOS/Android) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| DB schema + migrations | ✅ | ❌ | ❌ | ❌ | Limited |
+| API architecture review | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Multi-provider (5 backends) | ✅ | Claude only | Copilot only | Multiple | Proprietary |
+| Works without API key | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Feedback/learning system | ✅ | ❌ | ❌ | ❌ | ❌ |
+| CI/CD integration | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Open source | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Free | **Yes** | Paid | Paid | Paid | Freemium |
+
+**Dev-Crew is the best free, open-source alternative to v0, Bolt, Lovable, and other AI app builders** — but it runs locally, works on top of Claude Code, and gives you full control over the generated code.
 
 ---
 
@@ -706,6 +773,72 @@ npm list -g dev-crew
 nvm use 20
 npm install -g dev-crew
 ```
+
+---
+
+## Frequently Asked Questions
+
+### How do I build an app with AI for free?
+
+Install Dev-Crew (`npm install -g dev-crew`) and run `dev-crew create "describe your app"`. It works on top of Claude Code — no API keys or subscriptions needed. Dev-Crew's 6-stage AI pipeline generates requirements, architecture, complete code, database schemas, tests, and deployment configs automatically.
+
+### What's the best free alternative to v0, Bolt, or Lovable?
+
+Dev-Crew is a free, open-source CLI that generates complete applications from a single prompt — similar to v0, Bolt.new, and Lovable, but runs locally and gives you full control. Unlike those tools, Dev-Crew also includes 25 specialized agents for code review, testing, security auditing, and DevOps.
+
+### How do I generate a full-stack app from the command line?
+
+```bash
+npm install -g dev-crew
+dev-crew create "build a SaaS dashboard with Next.js, PostgreSQL, and Stripe"
+```
+
+Dev-Crew asks clarifying questions, then generates every file — frontend, backend, database, auth, tests, Docker, and CI/CD configs.
+
+### Can I use Dev-Crew for vibe coding?
+
+Yes. Dev-Crew is built for vibe coding — describe what you want in plain English and get production-ready code. Use `dev-crew create` for new apps, or use any of the 25 agents in interactive mode for ongoing development.
+
+### What AI tools does Dev-Crew work with?
+
+Dev-Crew works on top of Claude Code (default), Aider, GitHub Copilot, OpenAI CLI, Ollama, or the direct Claude API. It auto-detects which tools you have installed and uses the best available option. No configuration needed.
+
+### How do I do AI code review from the terminal?
+
+```bash
+npm install -g dev-crew
+dev-crew review src/          # Review entire directory
+dev-crew review @src/app.ts   # Review specific file
+dev-crew security src/        # OWASP security audit
+```
+
+### Is Dev-Crew better than using ChatGPT for coding?
+
+Dev-Crew is purpose-built for software engineering with 25 specialized agents, automatic project context detection, framework-aware analysis, and file-level precision. Instead of copy-pasting code into ChatGPT, Dev-Crew reads your codebase, understands your stack, and gives targeted feedback. It also generates complete apps, runs security audits, creates tests, and integrates with CI/CD.
+
+### How do I scaffold a new project with AI?
+
+```bash
+dev-crew create "describe your project"   # Full app with all files
+dev-crew scaffold "project description"   # Just the structure
+dev-crew build "feature description"      # Add feature to existing project
+```
+
+### Does Dev-Crew support mobile app development?
+
+Yes. Dev-Crew has dedicated agents for Flutter, React Native, iOS (Swift), and Android (Kotlin). Use `dev-crew flutter`, `dev-crew react-native`, `dev-crew ios`, or `dev-crew android` for mobile-specific code review and guidance.
+
+---
+
+## Use Cases
+
+- **Startup founders**: Go from idea to MVP in minutes with `dev-crew create`
+- **Solo developers**: Get code reviews, security audits, and architecture guidance without a team
+- **Students**: Learn best practices through AI-powered code analysis
+- **Teams**: Integrate into CI/CD for automated code review on every PR
+- **Open source maintainers**: Auto-review contributions, generate tests, audit security
+- **Freelancers**: Scaffold client projects faster, maintain consistent quality
+- **Hackathon participants**: Build and deploy apps in record time
 
 ---
 

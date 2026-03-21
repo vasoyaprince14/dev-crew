@@ -40,6 +40,7 @@ const KEYWORD_MAP: Array<{ keywords: string[]; agentId: string }> = [
   { keywords: ['api design', 'endpoint', 'rest api', 'graphql', 'api review'], agentId: 'api-architect' },
   { keywords: ['monitor', 'alert', 'logging', 'observability', 'metrics'], agentId: 'monitoring' },
   { keywords: ['scaffold', 'full stack', 'fullstack', 'generate project'], agentId: 'fullstack-builder' },
+  { keywords: ['create app', 'build app', 'build me', 'create project', 'new app', 'startup', 'vibe code', 'vibe coding', 'generate app'], agentId: 'app-creator' },
 ];
 
 // ---------------------------------------------------------------------------

@@ -30,10 +30,10 @@ export function getSharedProvider(): ProviderBridge {
 const GIT_INTEL_AGENTS = new Set(['review', 'security', 'performance', 'tech-lead', 'cto']);
 
 // Agents that need schema context
-const SCHEMA_AGENTS = new Set(['review', 'fix', 'db-architect', 'security', 'designer', 'ba', 'fullstack-builder']);
+const SCHEMA_AGENTS = new Set(['review', 'fix', 'db-architect', 'security', 'designer', 'ba', 'fullstack-builder', 'app-creator']);
 
 // Agents that need config context
-const CONFIG_AGENTS = new Set(['review', 'security', 'devops', 'cost-optimizer', 'monitoring']);
+const CONFIG_AGENTS = new Set(['review', 'security', 'devops', 'cost-optimizer', 'monitoring', 'app-creator']);
 
 export abstract class BaseAgent {
   protected bridge: ProviderBridge;

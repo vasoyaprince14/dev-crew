@@ -2,6 +2,27 @@
 
 All notable changes to Dev-Crew are documented here.
 
+## [3.0.0] - 2026-03-21
+
+### Added
+- **`dev-crew create` — Build complete apps from a single prompt**
+  - Interactive discovery phase: AI asks clarifying questions about your app
+  - 6-stage pipeline: Requirements → Architecture → Code Generation → Database → Tests → DevOps
+  - Generates complete, runnable code — every file written in full
+  - Writes all files to disk with directory creation
+  - Auto-runs `npm install` and `git init` after generation
+  - Supports `--stack`, `--output`, `--yes`, `--no-install` options
+- New `app-creator` agent (25th agent) — specialized for complete app generation with 16K token output
+- `CreatePipeline` orchestrator — chains 6 agents sequentially, each feeding context to the next
+- `Discovery` module — AI-powered Q&A to understand user requirements before building
+- `FileWriter` utility — safe file writing with directory traversal protection
+- NLP routing: "build me an app", "create app", "vibe coding" routes to app-creator
+
+### Changed
+- Now 25 agents (was 24)
+- Package description updated to highlight app builder capability
+- Added 8 new npm keywords: app-builder, vibe-coding, startup-builder, etc.
+
 ## [2.3.2] - 2026-03-21
 
 ### Fixed

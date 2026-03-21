@@ -23,6 +23,7 @@ import { AndroidAgent } from './android/index.js';
 import { MonitoringAgent } from './monitoring/index.js';
 import { PerformanceAgent } from './performance/index.js';
 import { AccessibilityAgent } from './accessibility/index.js';
+import { AppCreatorAgent } from './app-creator/index.js';
 import type { AgentConfig } from '../types/agent.js';
 import type { ProjectInfo } from '../types/config.js';
 
@@ -280,6 +281,18 @@ const BUILT_IN_AGENTS: Record<string, AgentEntry> = {
       tier: 'pro',
       maxTokens: 8192,
       contextDepth: 2,
+    },
+  },
+  'app-creator': {
+    cls: AppCreatorAgent,
+    defaultConfig: {
+      name: 'app-creator',
+      description: 'Generate complete applications from a description',
+      tier: 'pro',
+      maxTokens: 16384,
+      includeSchema: true,
+      includeConfig: true,
+      contextDepth: 3,
     },
   },
 };

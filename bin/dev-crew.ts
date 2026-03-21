@@ -69,6 +69,7 @@ import { performanceCommand } from '../src/commands/performance.js';
 import { accessibilityCommand } from '../src/commands/accessibility.js';
 import { scaffoldCommand } from '../src/commands/scaffold.js';
 import { buildCommand } from '../src/commands/build.js';
+import { createCommand } from '../src/commands/create.js';
 import { deployCommand } from '../src/commands/deploy.js';
 import { interactiveCommand } from '../src/commands/interactive.js';
 
@@ -142,6 +143,7 @@ function showBrandedHelp() {
 
   // ── Full-Stack & Database ──
   printSection(blue('Full-Stack & Database'), [
+    ['create <description>', 'Build a complete app from a prompt'],
     ['scaffold <description>', 'Scaffold a new project'],
     ['build <description>', 'Build a feature into your project'],
     ['db-architect [input]', 'Schema design & query optimization'],
@@ -432,6 +434,16 @@ program
   .command('monitoring [question]')
   .description('Observability, alerting, and logging strategy')
   .action(monitoringCommand);
+
+// ===== APP BUILDER =====
+program
+  .command('create <description>')
+  .description('Build a complete app from a single prompt — AI handles everything')
+  .option('-s, --stack <stack>', 'Tech stack (e.g., "nextjs+postgres", "react+express+mongo")')
+  .option('-o, --output <dir>', 'Output directory (default: ./<project-name>)')
+  .option('-y, --yes', 'Skip confirmations between pipeline stages')
+  .option('--no-install', 'Skip automatic npm install after generation')
+  .action(createCommand);
 
 // ===== V2: FULL-STACK BUILDER =====
 program
