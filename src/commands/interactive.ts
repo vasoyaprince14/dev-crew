@@ -1,4 +1,5 @@
 import readline from 'node:readline';
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
@@ -12,33 +13,35 @@ import { DebtTracker } from '../features/debt-tracker.js';
 import { Logger } from '../utils/logger.js';
 
 // ---------------------------------------------------------------------------
-// ANSI
+// ANSI — disabled when not a real terminal
 // ---------------------------------------------------------------------------
+const isTTY = process.stdout.isTTY === true;
+const ansi = (code: string) => isTTY ? code : '';
 const C = {
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  italic: '\x1b[3m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  gray: '\x1b[90m',
-  brightCyan: '\x1b[96m',
-  brightGreen: '\x1b[92m',
-  brightRed: '\x1b[91m',
-  brightYellow: '\x1b[93m',
-  bgRed: '\x1b[41m',
-  bgYellow: '\x1b[43m',
-  bgBlue: '\x1b[44m',
-  bgCyan: '\x1b[46m',
-  bgGray: '\x1b[100m',
-  hideCursor: '\x1b[?25l',
-  showCursor: '\x1b[?25h',
-  clearLine: '\x1b[2K\r',
+  reset: ansi('\x1b[0m'),
+  bold: ansi('\x1b[1m'),
+  dim: ansi('\x1b[2m'),
+  italic: ansi('\x1b[3m'),
+  red: ansi('\x1b[31m'),
+  green: ansi('\x1b[32m'),
+  yellow: ansi('\x1b[33m'),
+  blue: ansi('\x1b[34m'),
+  magenta: ansi('\x1b[35m'),
+  cyan: ansi('\x1b[36m'),
+  white: ansi('\x1b[37m'),
+  gray: ansi('\x1b[90m'),
+  brightCyan: ansi('\x1b[96m'),
+  brightGreen: ansi('\x1b[92m'),
+  brightRed: ansi('\x1b[91m'),
+  brightYellow: ansi('\x1b[93m'),
+  bgRed: ansi('\x1b[41m'),
+  bgYellow: ansi('\x1b[43m'),
+  bgBlue: ansi('\x1b[44m'),
+  bgCyan: ansi('\x1b[46m'),
+  bgGray: ansi('\x1b[100m'),
+  hideCursor: ansi('\x1b[?25l'),
+  showCursor: ansi('\x1b[?25h'),
+  clearLine: ansi('\x1b[2K\r'),
 };
 
 // ---------------------------------------------------------------------------
@@ -55,7 +58,7 @@ class Spinner {
     this.startTime = Date.now();
     this.text = text;
     this.frame = 0;
-    process.stdout.write(C.hideCursor);
+    try { process.stdout.write(C.hideCursor); } catch { /* pipe closed */ }
     this.render();
     this.interval = setInterval(() => this.render(), 80);
   }
@@ -64,22 +67,26 @@ class Spinner {
 
   stop(message?: string): void {
     if (this.interval) { clearInterval(this.interval); this.interval = null; }
-    process.stdout.write(C.clearLine + C.showCursor);
+    try { process.stdout.write(C.clearLine + C.showCursor); } catch { /* pipe closed */ }
     if (message) console.log(message);
   }
 
   private render(): void {
-    const s = ((Date.now() - this.startTime) / 1000).toFixed(0);
-    process.stdout.write(C.clearLine);
-    process.stdout.write(`  ${C.cyan}${this.frames[this.frame % this.frames.length]}${C.reset} ${C.dim}${this.text}${C.reset} ${C.dim}${s}s${C.reset}`);
-    this.frame++;
+    try {
+      const s = ((Date.now() - this.startTime) / 1000).toFixed(0);
+      process.stdout.write(C.clearLine);
+      process.stdout.write(`  ${C.cyan}${this.frames[this.frame % this.frames.length]}${C.reset} ${C.dim}${this.text}${C.reset} ${C.dim}${s}s${C.reset}`);
+      this.frame++;
+    } catch { /* stdout closed, ignore */ }
   }
 }
 
 // ---------------------------------------------------------------------------
 // File completer (for @ and Tab)
 // ---------------------------------------------------------------------------
-function getFiles(partial: string, max = 12): string[] {
+const SKIP_COMPLETIONS = new Set(['node_modules', 'dist', 'build', '.git', '__pycache__', '.next', '.nuxt', 'coverage', '.venv', 'venv']);
+
+function getFiles(partial: string, max = 20): string[] {
   try {
     const raw = partial.startsWith('@') ? partial.slice(1) : partial;
     const dir = raw.includes('/') ? path.dirname(raw) : '.';
@@ -87,12 +94,22 @@ function getFiles(partial: string, max = 12): string[] {
     const at = partial.startsWith('@') ? '@' : '';
     if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir)
-      .filter(e => e.startsWith(prefix) && !e.startsWith('.') && e !== 'node_modules' && e !== 'dist')
+      .filter(e => e.toLowerCase().startsWith(prefix.toLowerCase()) && !SKIP_COMPLETIONS.has(e))
+      .sort((a, b) => {
+        // Directories first, then alphabetical
+        const aIsDir = fs.statSync(dir === '.' ? a : `${dir}/${a}`).isDirectory();
+        const bIsDir = fs.statSync(dir === '.' ? b : `${dir}/${b}`).isDirectory();
+        if (aIsDir && !bIsDir) return -1;
+        if (!aIsDir && bIsDir) return 1;
+        return a.localeCompare(b);
+      })
       .slice(0, max)
       .map(e => {
         const full = dir === '.' ? e : `${dir}/${e}`;
-        const isDir = fs.statSync(full).isDirectory();
-        return `${at}${isDir ? full + '/' : full}`;
+        try {
+          const isDir = fs.statSync(full).isDirectory();
+          return `${at}${isDir ? full + '/' : full}`;
+        } catch { return `${at}${full}`; }
       });
   } catch { return []; }
 }
@@ -198,9 +215,10 @@ export async function interactiveCommand(): Promise<void> {
   rl.on('line', (line: string) => {
     const raw = line.trimEnd();
 
-    // Multi-line with trailing backslash
-    if (raw.endsWith('\\')) {
-      multiLine += raw.slice(0, -1) + '\n';
+    // Multi-line with trailing backslash (ignore trailing spaces before \)
+    if (raw.trimEnd().endsWith('\\')) {
+      const content = raw.replace(/\s*\\$/, '');
+      multiLine += content + '\n';
       process.stdout.write(`${C.dim}… ${C.reset}`);
       return;
     }
@@ -208,9 +226,16 @@ export async function interactiveCommand(): Promise<void> {
     const input = (multiLine + raw).trim();
     multiLine = '';
     if (!input) { rl.prompt(); return; }
-    if (busy) return; // ignore input while processing
+    if (busy) {
+      console.log(`  ${C.dim}Still working… press Ctrl+C to cancel${C.reset}`);
+      return;
+    }
     busy = true;
-    handle(input).finally(() => { busy = false; rl.prompt(); });
+    handle(input)
+      .catch((err) => {
+        console.log(`  ${C.red}Unexpected error: ${err instanceof Error ? err.message : String(err)}${C.reset}`);
+      })
+      .finally(() => { busy = false; rl.prompt(); });
   });
 
   async function handle(input: string): Promise<void> {
@@ -350,11 +375,15 @@ export async function interactiveCommand(): Promise<void> {
           return;
 
         case '/export': {
-          if (!lastRaw) { console.log(`  ${C.dim}Nothing to export${C.reset}`); return; }
+          if (!lastRaw) { console.log(`  ${C.dim}Nothing to export yet — run a command first${C.reset}`); return; }
           const file = args || `dev-crew-${lastAgent}-${Date.now()}.md`;
           try {
+            const dir = path.dirname(file);
+            if (dir && dir !== '.' && !fs.existsSync(dir)) {
+              fs.mkdirSync(dir, { recursive: true });
+            }
             fs.writeFileSync(file, `# ${lastAgent}\n\n${lastRaw}\n`);
-            console.log(`  ${C.green}✓${C.reset} ${C.dim}${file}${C.reset}`);
+            console.log(`  ${C.green}✓${C.reset} ${C.dim}Saved to ${file}${C.reset}`);
           } catch (e) { console.log(`  ${C.red}✗${C.reset} ${e instanceof Error ? e.message : e}`); }
           return;
         }
@@ -393,33 +422,41 @@ export async function interactiveCommand(): Promise<void> {
     spinner.start(parsed.agentId);
     const t0 = Date.now();
     let streamed = false;
+    let abortTimer: ReturnType<typeof setTimeout> | null = null;
 
     try {
-      const result = await Promise.race([
-        agent.execute({
-          query: parsed.query,
-          files: allFiles.length > 0 ? allFiles : undefined,
-          streaming: true,
-          onStream: (chunk: string) => {
-            if (!streamed) { spinner.stop(); streamed = true; }
-            process.stdout.write(chunk);
-          },
-          onProgress: (step: string) => {
-            if (!streamed) spinner.update(step);
-          },
-        }),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timeout — try @specific-file')), 120_000)),
-      ]);
+      const timeoutMs = allFiles.length > 0 ? 180_000 : 120_000; // more time for file analysis
+      const executePromise = agent.execute({
+        query: parsed.query,
+        files: allFiles.length > 0 ? allFiles : undefined,
+        streaming: true,
+        onStream: (chunk: string) => {
+          if (!streamed) { spinner.stop(); streamed = true; }
+          try { process.stdout.write(chunk); } catch { /* stdout closed */ }
+        },
+        onProgress: (step: string) => {
+          if (!streamed) spinner.update(step);
+        },
+      });
+
+      const timeoutPromise = new Promise<never>((_, rej) => {
+        abortTimer = setTimeout(() => rej(new Error(
+          allFiles.length > 0
+            ? 'Request timed out — the file may be too large. Try a smaller file.'
+            : 'Request timed out — try targeting specific files with @path/to/file'
+        )), timeoutMs);
+      });
+
+      const result = await Promise.race([executePromise, timeoutPromise]);
+      if (abortTimer) clearTimeout(abortTimer);
 
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       const tokens = (result.tokensUsed || 0) + optimizer.estimate(result.raw);
 
       if (streamed) {
-        // Already printed via streaming
         console.log();
       } else {
         spinner.stop();
-        // Print the response
         printResponse(result.raw);
       }
 
@@ -434,24 +471,60 @@ export async function interactiveCommand(): Promise<void> {
       lastAgent = parsed.agentId;
 
     } catch (err) {
+      if (abortTimer) clearTimeout(abortTimer);
       spinner.stop();
       if (streamed) console.log();
-      console.log(`  ${C.red}${err instanceof Error ? err.message : err}${C.reset}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      // Provide helpful context for common errors
+      if (msg.includes('ENOENT') || msg.includes('not found')) {
+        console.log(`  ${C.red}AI provider not found.${C.reset} Run ${C.cyan}/doctor${C.reset} to check setup.`);
+      } else if (msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT')) {
+        console.log(`  ${C.red}Connection failed.${C.reset} Check your internet or provider status.`);
+      } else if (msg.includes('exit code')) {
+        console.log(`  ${C.red}Provider error:${C.reset} ${msg}`);
+        console.log(`  ${C.dim}Try /provider simulation to test without AI${C.reset}`);
+      } else {
+        console.log(`  ${C.red}${msg}${C.reset}`);
+      }
       console.log();
     }
   }
 
-  // ── Ctrl+C ──
+  // ── Ctrl+C — cancel current operation or exit ──
+  let sigintCount = 0;
   rl.on('SIGINT', () => {
     if (busy) {
       spinner.stop(`  ${C.dim}cancelled${C.reset}`);
       busy = false;
+      sigintCount = 0;
       console.log();
+      rl.prompt();
+      return;
     }
+    sigintCount++;
+    if (sigintCount >= 2) {
+      console.log();
+      console.log(`  ${C.dim}${commands} commands · ${totalTokens.toLocaleString()} tokens${C.reset}`);
+      console.log();
+      process.exit(0);
+    }
+    console.log();
+    console.log(`  ${C.dim}Press Ctrl+C again to exit, or type /quit${C.reset}`);
     rl.prompt();
+    // Reset after 2 seconds
+    setTimeout(() => { sigintCount = 0; }, 2000);
   });
 
-  rl.on('close', () => process.exit(0));
+  rl.on('close', () => {
+    // Restore cursor on exit
+    try { process.stdout.write(C.showCursor); } catch { /* ignore */ }
+    process.exit(0);
+  });
+
+  // Ensure cursor is restored on unexpected exit
+  process.on('exit', () => {
+    try { process.stdout.write('\x1b[?25h'); } catch { /* ignore */ }
+  });
 }
 
 // ---------------------------------------------------------------------------

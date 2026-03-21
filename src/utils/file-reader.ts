@@ -18,6 +18,12 @@ const INCLUDE_EXTENSIONS = new Set([
   '.sh', '.bash', '.zsh', '.fish',
   '.css', '.scss', '.less', '.html',
   '.xml', '.proto', '.tf', '.hcl',
+  '.c', '.cpp', '.h', '.hpp', '.cxx', '.cc',
+  '.cs', '.vue', '.svelte', '.astro',
+  '.lua', '.scala', '.dart', '.r', '.R',
+  '.php', '.pl', '.pm', '.ex', '.exs',
+  '.zig', '.nim', '.gleam', '.hbs', '.ejs',
+  '.dockerfile', '.Dockerfile', '.env.example',
 ]);
 
 const EXCLUDE_DIRS = new Set([

@@ -66,16 +66,37 @@ export class ProjectDetector {
 
   private detectLanguage(root: string): ProjectInfo['language'] {
     if (fs.existsSync(path.join(root, 'tsconfig.json'))) return 'typescript';
+    // Python — check all common markers
+    if (
+      fs.existsSync(path.join(root, 'requirements.txt')) ||
+      fs.existsSync(path.join(root, 'pyproject.toml')) ||
+      fs.existsSync(path.join(root, 'Pipfile')) ||
+      fs.existsSync(path.join(root, 'setup.py')) ||
+      fs.existsSync(path.join(root, 'setup.cfg')) ||
+      fs.existsSync(path.join(root, 'manage.py')) ||
+      fs.existsSync(path.join(root, 'app.py')) ||
+      fs.existsSync(path.join(root, 'main.py'))
+    ) return 'python';
     if (fs.existsSync(path.join(root, 'package.json'))) return 'javascript';
-    if (fs.existsSync(path.join(root, 'requirements.txt')) || fs.existsSync(path.join(root, 'pyproject.toml'))) return 'python';
     if (fs.existsSync(path.join(root, 'go.mod'))) return 'go';
     if (fs.existsSync(path.join(root, 'Cargo.toml'))) return 'rust';
     if (fs.existsSync(path.join(root, 'pom.xml')) || fs.existsSync(path.join(root, 'build.gradle'))) return 'java';
+    // Last resort: check for common files
+    try {
+      const files = fs.readdirSync(root);
+      if (files.some(f => f.endsWith('.py'))) return 'python';
+      if (files.some(f => f.endsWith('.go'))) return 'go';
+      if (files.some(f => f.endsWith('.rs'))) return 'rust';
+      if (files.some(f => f.endsWith('.java') || f.endsWith('.kt'))) return 'java';
+      if (files.some(f => f.endsWith('.ts') || f.endsWith('.tsx'))) return 'typescript';
+      if (files.some(f => f.endsWith('.js') || f.endsWith('.jsx'))) return 'javascript';
+    } catch { /* skip */ }
     return 'unknown';
   }
 
   private detectFramework(deps: Record<string, string>, devDeps: Record<string, string>): string | null {
     const all = { ...deps, ...devDeps };
+    // JS/TS frameworks
     if (all['@nestjs/core']) return 'nestjs';
     if (all['next']) return 'nextjs';
     if (all['nuxt']) return 'nuxt';
@@ -88,16 +109,62 @@ export class ProjectDetector {
     if (all['vue'] && !all['nuxt']) return 'vue';
     if (all['svelte']) return 'svelte';
     if (all['astro']) return 'astro';
+    // Python frameworks (detected from files, not package.json)
+    return this.detectPythonFramework();
+  }
+
+  private detectPythonFramework(): string | null {
+    const root = process.cwd();
+    // Django
+    if (fs.existsSync(path.join(root, 'manage.py'))) {
+      try {
+        const content = fs.readFileSync(path.join(root, 'manage.py'), 'utf-8');
+        if (content.includes('django')) return 'django';
+      } catch { /* skip */ }
+      return 'django';
+    }
+    // Check requirements.txt for frameworks
+    for (const reqFile of ['requirements.txt', 'pyproject.toml', 'Pipfile']) {
+      const reqPath = path.join(root, reqFile);
+      if (fs.existsSync(reqPath)) {
+        try {
+          const content = fs.readFileSync(reqPath, 'utf-8').toLowerCase();
+          if (content.includes('django')) return 'django';
+          if (content.includes('fastapi')) return 'fastapi';
+          if (content.includes('flask')) return 'flask';
+          if (content.includes('celery')) return 'celery';
+          if (content.includes('starlette')) return 'starlette';
+          if (content.includes('tornado')) return 'tornado';
+        } catch { /* skip */ }
+      }
+    }
     return null;
   }
 
   private detectDatabase(deps: Record<string, string>): string[] {
     const dbs: string[] = [];
+    // JS deps
     if (deps['pg'] || deps['postgres'] || deps['@neondatabase/serverless']) dbs.push('postgresql');
     if (deps['mysql2'] || deps['mysql']) dbs.push('mysql');
     if (deps['mongodb'] || deps['mongoose']) dbs.push('mongodb');
     if (deps['redis'] || deps['ioredis']) dbs.push('redis');
     if (deps['sqlite3'] || deps['better-sqlite3']) dbs.push('sqlite');
+    // Python deps (check requirements.txt / docker-compose)
+    if (dbs.length === 0) {
+      const root = process.cwd();
+      for (const file of ['requirements.txt', 'docker-compose.yml', 'docker-compose.yaml', 'pyproject.toml']) {
+        const p = path.join(root, file);
+        if (fs.existsSync(p)) {
+          try {
+            const content = fs.readFileSync(p, 'utf-8').toLowerCase();
+            if (content.includes('postgres') || content.includes('psycopg') || content.includes('timescale')) { if (!dbs.includes('postgresql')) dbs.push('postgresql'); }
+            if (content.includes('redis')) { if (!dbs.includes('redis')) dbs.push('redis'); }
+            if (content.includes('mongo')) { if (!dbs.includes('mongodb')) dbs.push('mongodb'); }
+            if (content.includes('mysql')) { if (!dbs.includes('mysql')) dbs.push('mysql'); }
+          } catch { /* skip */ }
+        }
+      }
+    }
     return dbs;
   }
 

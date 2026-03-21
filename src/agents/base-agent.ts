@@ -122,11 +122,11 @@ export abstract class BaseAgent {
 
     onProgress?.('Reading files...');
     const contextData = await this.context.gather({
-      files: resolvedFiles,
+      files: filesResolved ? resolvedFiles : undefined,
       projectInfo: this.projectInfo,
       includeSchema: filesResolved ? needsSchema : false,
       includeConfig: filesResolved ? needsConfig : false,
-      maxDepth: isSimpleQuery ? 1 : Math.min(this.config.contextDepth ?? 2, 2),
+      maxDepth: isSimpleQuery ? 0 : Math.min(this.config.contextDepth ?? 2, 2),
     });
 
     // ── Step 2: Git intelligence (ONLY for agents that need it, ONLY when files specified) ──

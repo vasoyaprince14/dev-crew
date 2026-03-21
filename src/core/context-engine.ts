@@ -25,6 +25,10 @@ export class ContextEngine {
         const content = this.readFileContext(file, options.maxDepth || 2);
         if (content) sections.push(content);
       }
+    } else {
+      // No files specified — include a compact directory tree so AI knows the structure
+      const tree = this.getDirectoryTree(options.projectInfo.root, 2);
+      if (tree) sections.push(tree);
     }
 
     // Schema — only when explicitly requested by agent
@@ -136,6 +140,55 @@ export class ContextEngine {
     result = result.replace(/[ \t]+$/gm, '');
 
     return result.trim();
+  }
+
+  private getDirectoryTree(root: string, depth: number): string | null {
+    const SKIP = new Set([
+      'node_modules', '.git', '.next', '.nuxt', 'dist', 'build', 'out',
+      '__pycache__', '.venv', 'venv', 'env', '.env', '.tox', '.mypy_cache',
+      '.pytest_cache', 'coverage', '.turbo', '.cache', '.parcel-cache',
+    ]);
+
+    const lines: string[] = ['## Project Structure'];
+    let count = 0;
+    const maxEntries = 80;
+
+    const walk = (dir: string, prefix: string, currentDepth: number): void => {
+      if (currentDepth > depth || count >= maxEntries) return;
+
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+
+      // Sort: directories first, then files
+      entries.sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      for (const entry of entries) {
+        if (count >= maxEntries) break;
+        if (entry.name.startsWith('.') && entry.isDirectory()) continue;
+        if (SKIP.has(entry.name)) continue;
+
+        count++;
+        if (entry.isDirectory()) {
+          lines.push(`${prefix}${entry.name}/`);
+          walk(path.join(dir, entry.name), prefix + '  ', currentDepth + 1);
+        } else {
+          lines.push(`${prefix}${entry.name}`);
+        }
+      }
+    };
+
+    walk(root, '', 0);
+
+    if (count === 0) return null;
+    return lines.join('\n');
   }
 
   private getSchema(info: ProjectInfo): string | null {

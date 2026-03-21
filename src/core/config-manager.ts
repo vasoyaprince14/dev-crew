@@ -112,6 +112,10 @@ export class ConfigManager {
     if (!config.feedback[agentName]) config.feedback[agentName] = [];
     if (!config.feedback[agentName].includes(message)) {
       config.feedback[agentName].push(message);
+      // Keep only last 30 feedback items per agent to prevent bloat
+      if (config.feedback[agentName].length > 30) {
+        config.feedback[agentName] = config.feedback[agentName].slice(-30);
+      }
     }
     this.save(config);
   }

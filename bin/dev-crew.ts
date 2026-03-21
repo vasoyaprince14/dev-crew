@@ -6,7 +6,26 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+
+let pkg: { version: string; name: string };
+try {
+  pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+} catch {
+  pkg = { version: '0.0.0', name: 'dev-crew' };
+}
+
+// Global error handlers — prevent ugly crashes
+process.on('uncaughtException', (err) => {
+  console.error(`\x1b[31mdev-crew crashed: ${err.message}\x1b[0m`);
+  if (process.env.DEBUG) console.error(err.stack);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  console.error(`\x1b[31mdev-crew error: ${msg}\x1b[0m`);
+  if (process.env.DEBUG) console.error(reason);
+  process.exit(1);
+});
 import { initCommand } from '../src/commands/init.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { reviewCommand } from '../src/commands/review.js';

@@ -355,9 +355,14 @@ export class ProviderBridge {
     const args = this.currentProvider.buildArgs(optimizedPrompt, options);
     const command = this.currentProvider.command;
 
+    const timeoutMs = options.timeout || 120_000;
+    const providerName = this.currentProvider.name;
+
     return new Promise((resolve, reject) => {
+      let finished = false;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
       const proc = spawn(command, args, {
-        timeout: options.timeout || 120_000, // 2 min default (was 5 min)
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
@@ -368,24 +373,39 @@ export class ProviderBridge {
       let stdout = '';
       let stderr = '';
 
+      // Kill process on timeout — prevents zombie processes
+      timeoutId = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          try { proc.kill('SIGTERM'); } catch { /* already dead */ }
+          // Force kill after 5 seconds if SIGTERM didn't work
+          setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* ignore */ } }, 5000);
+          reject(new Error(`AI provider "${providerName}" timed out after ${Math.round(timeoutMs / 1000)}s`));
+        }
+      }, timeoutMs);
+
       proc.stdout.on('data', (data: Buffer) => {
-        const chunk = data.toString();
+        const chunk = data.toString('utf-8');
         stdout += chunk;
         if (options.streaming && options.onStream) {
-          options.onStream(chunk);
+          try { options.onStream(chunk); } catch { /* callback error, ignore */ }
         }
       });
 
       proc.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        stderr += data.toString('utf-8');
       });
 
       proc.on('close', (code) => {
+        if (finished) return; // Already handled (timeout)
+        finished = true;
+        if (timeoutId) clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
 
         if (code !== 0) {
+          const errMsg = stderr.trim().slice(0, 500); // Cap error message length
           reject(
-            new Error(`AI provider "${this.currentProvider!.name}" exited with code ${code}: ${stderr}`),
+            new Error(`AI provider "${providerName}" exited with code ${code}${errMsg ? ': ' + errMsg : ''}`),
           );
           return;
         }
@@ -398,15 +418,18 @@ export class ProviderBridge {
       });
 
       proc.on('error', (err: NodeJS.ErrnoException) => {
+        if (finished) return;
+        finished = true;
+        if (timeoutId) clearTimeout(timeoutId);
         if (err.code === 'ENOENT') {
           reject(
             new Error(
-              `AI provider "${this.currentProvider!.name}" not found. ` +
+              `AI provider "${providerName}" not found. ` +
               `Ensure "${command}" is installed and on your PATH.`,
             ),
           );
         } else {
-          reject(err);
+          reject(new Error(`AI provider "${providerName}" error: ${err.message}`));
         }
       });
     });

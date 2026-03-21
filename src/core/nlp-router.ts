@@ -23,7 +23,7 @@ const KEYWORD_MAP: Array<{ keywords: string[]; agentId: string }> = [
   { keywords: ['fix', 'repair', 'patch', 'correct', 'solve'], agentId: 'fix' },
   { keywords: ['debug', 'error', 'failing', 'crash', 'broken', 'not working', 'why is', 'bug'], agentId: 'debug' },
   { keywords: ['test', 'write tests', 'generate tests', 'spec', 'coverage', 'unit test'], agentId: 'test' },
-  { keywords: ['explain', 'what does', 'how does', 'understand', 'what is', 'about', 'tell me'], agentId: 'explain' },
+  { keywords: ['explain', 'what does', 'how does', 'understand', 'what is', 'about', 'tell me', 'document', 'documentation'], agentId: 'explain' },
   { keywords: ['secure', 'security', 'vulnerability', 'owasp', 'xss', 'injection'], agentId: 'security' },
   { keywords: ['deploy', 'devops', 'docker', 'ci-cd', 'pipeline', 'kubernetes', 'k8s'], agentId: 'devops' },
   { keywords: ['cost', 'expensive', 'bill', 'pricing', 'save money', 'cloud cost'], agentId: 'cost-optimizer' },
