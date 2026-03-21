@@ -14,29 +14,32 @@ export interface ParsedInput {
 // Keyword → agent-id mapping
 // ---------------------------------------------------------------------------
 
+// Each keyword entry can use:
+//   - plain string: matched with word boundaries (won't match inside other words)
+//   - string starting with "=": exact phrase match (no word boundary)
 const KEYWORD_MAP: Array<{ keywords: string[]; agentId: string }> = [
-  { keywords: ['review', 'check', 'audit', 'analyze', 'scan'], agentId: 'review' },
+  { keywords: ['pull request', 'merge request', 'pr review', 'review pr'], agentId: 'pr' },
+  { keywords: ['review', 'code review', 'check code', 'audit code', 'analyze'], agentId: 'review' },
   { keywords: ['fix', 'repair', 'patch', 'correct', 'solve'], agentId: 'fix' },
-  { keywords: ['debug', 'error', 'failing', 'crash', 'broken', 'not working', 'why is'], agentId: 'debug' },
-  { keywords: ['test', 'write tests', 'generate tests', 'spec', 'coverage'], agentId: 'test' },
-  { keywords: ['explain', 'what does', 'how does', 'understand'], agentId: 'explain' },
-  { keywords: ['secure', 'security', 'vulnerability', 'owasp'], agentId: 'security' },
-  { keywords: ['deploy', 'devops', 'docker', 'ci-cd', 'pipeline', 'kubernetes'], agentId: 'devops' },
-  { keywords: ['cost', 'expensive', 'bill', 'pricing', 'save money'], agentId: 'cost-optimizer' },
-  { keywords: ['onboard', 'new developer', 'getting started'], agentId: 'onboard' },
-  { keywords: ['architect', 'design', 'structure', 'refactor', 'tech-lead'], agentId: 'tech-lead' },
-  { keywords: ['requirement', 'user story', 'feature request', 'business'], agentId: 'ba' },
-  { keywords: ['pr', 'pull request', 'merge request'], agentId: 'pr' },
-  { keywords: ['flutter', 'dart'], agentId: 'flutter' },
-  { keywords: ['react native', 'rn'], agentId: 'react-native' },
-  { keywords: ['ios', 'swift', 'swiftui'], agentId: 'ios' },
+  { keywords: ['debug', 'error', 'failing', 'crash', 'broken', 'not working', 'why is', 'bug'], agentId: 'debug' },
+  { keywords: ['test', 'write tests', 'generate tests', 'spec', 'coverage', 'unit test'], agentId: 'test' },
+  { keywords: ['explain', 'what does', 'how does', 'understand', 'what is', 'about', 'tell me'], agentId: 'explain' },
+  { keywords: ['secure', 'security', 'vulnerability', 'owasp', 'xss', 'injection'], agentId: 'security' },
+  { keywords: ['deploy', 'devops', 'docker', 'ci-cd', 'pipeline', 'kubernetes', 'k8s'], agentId: 'devops' },
+  { keywords: ['cost', 'expensive', 'bill', 'pricing', 'save money', 'cloud cost'], agentId: 'cost-optimizer' },
+  { keywords: ['onboard', 'new developer', 'getting started', 'setup guide'], agentId: 'onboard' },
+  { keywords: ['architect', 'architecture', 'design pattern', 'refactor', 'tech lead'], agentId: 'tech-lead' },
+  { keywords: ['requirement', 'user story', 'feature request', 'business requirement'], agentId: 'ba' },
+  { keywords: ['flutter', 'dart widget'], agentId: 'flutter' },
+  { keywords: ['react native', 'react-native'], agentId: 'react-native' },
+  { keywords: ['ios', 'swift', 'swiftui', 'xcode'], agentId: 'ios' },
   { keywords: ['android', 'kotlin', 'jetpack'], agentId: 'android' },
-  { keywords: ['performance', 'slow', 'speed', 'optimize'], agentId: 'performance' },
-  { keywords: ['accessibility', 'a11y', 'wcag', 'aria'], agentId: 'accessibility' },
-  { keywords: ['database', 'schema', 'migration', 'query'], agentId: 'db-architect' },
-  { keywords: ['api', 'endpoint', 'rest', 'graphql'], agentId: 'api-architect' },
-  { keywords: ['monitor', 'alert', 'logging', 'observability'], agentId: 'monitoring' },
-  { keywords: ['scaffold', 'build', 'full stack', 'fullstack'], agentId: 'fullstack-builder' },
+  { keywords: ['performance', 'slow', 'speed up', 'optimize', 'perf audit'], agentId: 'performance' },
+  { keywords: ['accessibility', 'a11y', 'wcag', 'aria', 'screen reader'], agentId: 'accessibility' },
+  { keywords: ['database', 'schema', 'migration', 'sql query', 'db design'], agentId: 'db-architect' },
+  { keywords: ['api design', 'endpoint', 'rest api', 'graphql', 'api review'], agentId: 'api-architect' },
+  { keywords: ['monitor', 'alert', 'logging', 'observability', 'metrics'], agentId: 'monitoring' },
+  { keywords: ['scaffold', 'full stack', 'fullstack', 'generate project'], agentId: 'fullstack-builder' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -92,20 +95,33 @@ export function parseNaturalInput(
   }
 
   // ------------------------------------------------------------------
-  // 2. Keyword matching (multi-word keywords checked first)
-  //    Sort entries so that longer (multi-word) keywords are tested
-  //    before shorter ones to avoid false positives.
+  // 2. Keyword matching with word-boundary awareness
+  //    Multi-word keywords checked first (longest match wins).
+  //    Single-word keywords use word boundaries to prevent false
+  //    positives (e.g. "pr" matching inside "project").
   // ------------------------------------------------------------------
   for (const entry of KEYWORD_MAP) {
-    // Check multi-word keywords first (sorted longest-first)
     const sorted = [...entry.keywords].sort((a, b) => b.length - a.length);
     for (const keyword of sorted) {
-      if (lower.includes(keyword)) {
-        return {
-          agentId: entry.agentId,
-          query: trimmed,
-          filePath: extractFilePath(trimmed),
-        };
+      // Multi-word keywords: simple includes is safe
+      if (keyword.includes(' ')) {
+        if (lower.includes(keyword)) {
+          return {
+            agentId: entry.agentId,
+            query: trimmed,
+            filePath: extractFilePath(trimmed),
+          };
+        }
+      } else {
+        // Single-word: use word boundary regex to avoid partial matches
+        const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+        if (regex.test(lower)) {
+          return {
+            agentId: entry.agentId,
+            query: trimmed,
+            filePath: extractFilePath(trimmed),
+          };
+        }
       }
     }
   }

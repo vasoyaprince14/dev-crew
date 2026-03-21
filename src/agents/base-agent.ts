@@ -51,13 +51,14 @@ export abstract class BaseAgent {
 
     // 1. Gather context (skip heavy gathering for simple queries with no files)
     const hasFiles = input.files && input.files.length > 0;
+    const isSimpleQuery = !hasFiles && (input.query || '').split(/\s+/).length < 15;
     onProgress?.('Gathering context...');
     const contextData = await this.context.gather({
       files: input.files,
       projectInfo: this.projectInfo,
       includeSchema: hasFiles ? (this.config.includeSchema ?? true) : false,
       includeConfig: hasFiles ? (this.config.includeConfig ?? true) : false,
-      maxDepth: this.config.contextDepth ?? 2,
+      maxDepth: isSimpleQuery ? 1 : (this.config.contextDepth ?? 2),
     });
 
     // 2. Build prompt

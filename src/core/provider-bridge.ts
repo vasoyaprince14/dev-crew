@@ -357,7 +357,7 @@ export class ProviderBridge {
 
     return new Promise((resolve, reject) => {
       const proc = spawn(command, args, {
-        timeout: options.timeout || 300_000,
+        timeout: options.timeout || 120_000, // 2 min default (was 5 min)
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
       });

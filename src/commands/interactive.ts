@@ -791,7 +791,7 @@ export async function interactiveCommand(): Promise<void> {
     let promptLength = 0;
 
     try {
-      const timeoutMs = 180_000;
+      const timeoutMs = 120_000; // 2 min timeout
       const result = await Promise.race([
         agent.execute({
           query: parsed.query,
@@ -801,12 +801,12 @@ export async function interactiveCommand(): Promise<void> {
             // Capture prompt size from step text
             const tokenMatch = step.match(/~([\d,]+) tokens/);
             if (tokenMatch) {
-              promptLength = parseInt(tokenMatch[1].replace(/,/g, ''), 10) * 4; // rough char count
+              promptLength = parseInt(tokenMatch[1].replace(/,/g, ''), 10) * 4;
             }
           },
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timed out after 3 minutes.')), timeoutMs),
+          setTimeout(() => reject(new Error('Timed out after 2 minutes. Try specifying a file: review @src/app.ts')), timeoutMs),
         ),
       ]);
 

@@ -81,16 +81,20 @@ Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
   }
 
   private readDirectoryContext(dirPath: string, maxDepth: number): string {
-    const files = walkDir(dirPath, maxDepth);
+    // Use reduced depth to prevent scanning huge projects
+    const effectiveDepth = Math.min(maxDepth, 2);
+    const files = walkDir(dirPath, effectiveDepth);
     const sections: string[] = [];
-    const maxFiles = 15;
-    const maxTotalChars = 80_000; // ~20K tokens
+    const maxFiles = 10;
+    const maxTotalChars = 50_000; // ~12K tokens — keep it tight
+    const maxFileSize = 8_000; // Skip files larger than 8K chars
     let totalChars = 0;
 
     for (const file of files) {
       if (sections.length >= maxFiles) break;
       const content = readFileSafe(file);
       if (!content) continue;
+      if (content.length > maxFileSize) continue; // Skip huge files
       if (totalChars + content.length > maxTotalChars) break;
       totalChars += content.length;
       const relativePath = path.relative(process.cwd(), file);
@@ -98,8 +102,9 @@ Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
       sections.push(`## File: ${relativePath}\n\`\`\`${ext}\n${content}\n\`\`\``);
     }
 
-    if (files.length > sections.length) {
-      sections.push(`\n[... ${files.length - sections.length} more files not shown — use a specific file path for full context]`);
+    const skipped = files.length - sections.length;
+    if (skipped > 0) {
+      sections.push(`\n[... ${skipped} more files not shown — specify a file path for full context, e.g. review @src/app.ts]`);
     }
 
     return sections.join('\n\n');
