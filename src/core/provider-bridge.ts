@@ -29,16 +29,16 @@ interface ProviderConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Provider definitions
+// CLI-based provider definitions (subprocess spawning)
 // ---------------------------------------------------------------------------
 
-const PROVIDERS: ProviderConfig[] = [
+const CLI_PROVIDERS: ProviderConfig[] = [
   {
     id: 'claude-code',
     name: 'Claude Code',
     color: '#d97706',
     command: 'claude',
-    priority: 1,
+    priority: 2,
     buildArgs(prompt, options) {
       const args = ['--print'];
       if (options.systemPrompt) args.push('--system-prompt', options.systemPrompt);
@@ -52,7 +52,7 @@ const PROVIDERS: ProviderConfig[] = [
     name: 'Aider',
     color: '#10b981',
     command: 'aider',
-    priority: 2,
+    priority: 3,
     buildArgs(prompt, options) {
       const args = ['--message', prompt, '--no-git', '--yes'];
       if (options.systemPrompt) args.push('--system-prompt', options.systemPrompt);
@@ -64,9 +64,8 @@ const PROVIDERS: ProviderConfig[] = [
     name: 'GitHub Copilot',
     color: '#6366f1',
     command: 'gh',
-    priority: 3,
+    priority: 4,
     buildArgs(prompt, _options) {
-      // `gh copilot suggest` is the closest non-interactive path
       return ['copilot', 'suggest', '-t', 'shell', prompt];
     },
   },
@@ -75,7 +74,7 @@ const PROVIDERS: ProviderConfig[] = [
     name: 'OpenAI CLI',
     color: '#ef4444',
     command: 'openai',
-    priority: 4,
+    priority: 5,
     buildArgs(prompt, options) {
       const args = ['api', 'chat_completions.create', '-m', 'gpt-4o', '-g', 'user', prompt];
       if (options.maxTokens) args.push('--max-tokens', String(options.maxTokens));
@@ -87,7 +86,7 @@ const PROVIDERS: ProviderConfig[] = [
     name: 'Ollama',
     color: '#8b5cf6',
     command: 'ollama',
-    priority: 5,
+    priority: 6,
     buildArgs(prompt, options) {
       const args = ['run', 'llama3'];
       if (options.systemPrompt) args.push('--system', options.systemPrompt);
@@ -169,10 +168,9 @@ function generateSimulationResponse(prompt: string): string {
     }, null, 2);
   }
 
-  // Generic fallback
   return JSON.stringify({
     response: 'Simulated AI response',
-    note: 'No real AI provider is installed. Install one of: claude, aider, gh copilot, openai, ollama',
+    note: 'No real AI provider is installed. Set ANTHROPIC_API_KEY or install: claude, aider, gh copilot, openai, ollama',
     prompt_received: prompt.slice(0, 120),
   }, null, 2);
 }
@@ -186,6 +184,8 @@ export class ProviderBridge {
   private logger: Logger;
   private currentProvider: ProviderConfig | null = null;
   private useSimulation = false;
+  private useDirectAPI = false;
+  private anthropicClient: any = null; // Lazy-loaded Anthropic SDK
 
   constructor(verbose = false) {
     this.optimizer = new TokenOptimizer();
@@ -196,14 +196,19 @@ export class ProviderBridge {
   // Detection
   // -----------------------------------------------------------------------
 
-  /**
-   * Probe every known provider by running `<command> --version` and return
-   * their availability status.
-   */
   async detectProviders(): Promise<ProviderInfo[]> {
     const results: ProviderInfo[] = [];
 
-    for (const provider of PROVIDERS) {
+    // Check direct API first
+    const apiStatus = this.hasAnthropicKey() ? 'available' as const : 'not-installed' as const;
+    results.push({
+      id: 'claude-api',
+      name: 'Claude API (Direct)',
+      status: apiStatus,
+      color: '#d97706',
+    });
+
+    for (const provider of CLI_PROVIDERS) {
       const status = await this.checkInstalled(provider.command);
       results.push({
         id: provider.id,
@@ -213,9 +218,7 @@ export class ProviderBridge {
       });
     }
 
-    // Simulation is always available
     results.push({ ...SIMULATION_PROVIDER });
-
     return results;
   }
 
@@ -223,18 +226,29 @@ export class ProviderBridge {
   // Selection
   // -----------------------------------------------------------------------
 
-  /**
-   * Auto-select the best available provider by priority.
-   * Falls back to simulation mode if nothing is installed.
-   */
   async autoSelect(): Promise<ProviderInfo> {
-    const sorted = [...PROVIDERS].sort((a, b) => a.priority - b.priority);
+    // Priority 1: Direct Claude API (if ANTHROPIC_API_KEY is set)
+    if (this.hasAnthropicKey()) {
+      this.useDirectAPI = true;
+      this.useSimulation = false;
+      this.currentProvider = null;
+      this.logger.debug('Auto-selected provider: Claude API (Direct)');
+      return {
+        id: 'claude-api',
+        name: 'Claude API (Direct)',
+        status: 'available',
+        color: '#d97706',
+      };
+    }
 
+    // Priority 2+: CLI providers
+    const sorted = [...CLI_PROVIDERS].sort((a, b) => a.priority - b.priority);
     for (const provider of sorted) {
       const status = await this.checkInstalled(provider.command);
       if (status === 'available') {
         this.currentProvider = provider;
         this.useSimulation = false;
+        this.useDirectAPI = false;
         this.logger.debug(`Auto-selected provider: ${provider.name}`);
         return {
           id: provider.id,
@@ -245,28 +259,43 @@ export class ProviderBridge {
       }
     }
 
-    // Nothing installed – fall back to simulation
+    // Fallback: simulation
     this.currentProvider = null;
     this.useSimulation = true;
+    this.useDirectAPI = false;
     this.logger.debug('No AI providers found – using simulation mode');
     return { ...SIMULATION_PROVIDER };
   }
 
-  /**
-   * Manually switch to a specific provider by id.
-   * Use `"simulation"` to force simulation mode.
-   */
   async setProvider(id: string): Promise<ProviderInfo> {
     if (id === 'simulation') {
       this.currentProvider = null;
       this.useSimulation = true;
+      this.useDirectAPI = false;
       return { ...SIMULATION_PROVIDER };
     }
 
-    const provider = PROVIDERS.find((p) => p.id === id);
+    if (id === 'claude-api') {
+      if (!this.hasAnthropicKey()) {
+        throw new Error(
+          'ANTHROPIC_API_KEY not set. Get one at https://console.anthropic.com/settings/keys',
+        );
+      }
+      this.useDirectAPI = true;
+      this.useSimulation = false;
+      this.currentProvider = null;
+      return {
+        id: 'claude-api',
+        name: 'Claude API (Direct)',
+        status: 'available',
+        color: '#d97706',
+      };
+    }
+
+    const provider = CLI_PROVIDERS.find((p) => p.id === id);
     if (!provider) {
       throw new Error(
-        `Unknown provider "${id}". Available: ${PROVIDERS.map((p) => p.id).join(', ')}, simulation`,
+        `Unknown provider "${id}". Available: claude-api, ${CLI_PROVIDERS.map((p) => p.id).join(', ')}, simulation`,
       );
     }
 
@@ -279,6 +308,7 @@ export class ProviderBridge {
 
     this.currentProvider = provider;
     this.useSimulation = false;
+    this.useDirectAPI = false;
     return {
       id: provider.id,
       name: provider.name,
@@ -291,10 +321,10 @@ export class ProviderBridge {
   // Info
   // -----------------------------------------------------------------------
 
-  /**
-   * Return information about the currently selected provider.
-   */
   getProviderInfo(): ProviderInfo {
+    if (this.useDirectAPI) {
+      return { id: 'claude-api', name: 'Claude API (Direct)', status: 'available', color: '#d97706' };
+    }
     if (this.useSimulation || !this.currentProvider) {
       return { ...SIMULATION_PROVIDER };
     }
@@ -307,10 +337,13 @@ export class ProviderBridge {
   }
 
   // -----------------------------------------------------------------------
-  // Verify / Version  (mirrors ClaudeBridge API)
+  // Verify / Version
   // -----------------------------------------------------------------------
 
   async verify(): Promise<boolean> {
+    if (this.useDirectAPI) {
+      return this.hasAnthropicKey();
+    }
     if (this.useSimulation) return true;
     if (!this.currentProvider) return false;
 
@@ -323,6 +356,7 @@ export class ProviderBridge {
   }
 
   async getVersion(): Promise<string> {
+    if (this.useDirectAPI) return 'claude-api-direct';
     if (this.useSimulation) return 'simulation-1.0.0';
     if (!this.currentProvider) return 'unknown';
 
@@ -335,28 +369,120 @@ export class ProviderBridge {
   }
 
   // -----------------------------------------------------------------------
-  // Send  (mirrors ClaudeBridge.send)
+  // Send
   // -----------------------------------------------------------------------
 
   async send(prompt: string, options: ClaudeOptions = {}): Promise<ClaudeResponse> {
-    // ----- simulation path -----
+    // Direct API path (best — no subprocess overhead, real streaming, real token counts)
+    if (this.useDirectAPI) {
+      return this.sendDirectAPI(prompt, options);
+    }
+
+    // Simulation path
     if (this.useSimulation || !this.currentProvider) {
       return this.simulatedSend(prompt);
     }
 
-    // ----- real provider path -----
+    // CLI subprocess path
+    return this.sendCLI(prompt, options);
+  }
+
+  // -----------------------------------------------------------------------
+  // Direct Anthropic API
+  // -----------------------------------------------------------------------
+
+  private async getAnthropicClient(): Promise<any> {
+    if (this.anthropicClient) return this.anthropicClient;
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    this.anthropicClient = new Anthropic();
+    return this.anthropicClient;
+  }
+
+  private async sendDirectAPI(prompt: string, options: ClaudeOptions): Promise<ClaudeResponse> {
+    const startTime = Date.now();
+    const client = await this.getAnthropicClient();
+
+    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+    const maxTokens = options.maxTokens || 4096;
+
+    // Build messages
+    const messages: Array<{ role: string; content: string }> = [
+      { role: 'user', content: prompt },
+    ];
+
+    // Streaming path — real token-by-token streaming from Claude API
+    if (options.streaming && options.onStream) {
+      let content = '';
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      const stream = await client.messages.stream({
+        model,
+        max_tokens: maxTokens,
+        system: options.systemPrompt || undefined,
+        messages,
+      });
+
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          content += event.delta.text;
+          try { options.onStream(event.delta.text); } catch { /* callback error */ }
+        }
+        if (event.type === 'message_delta' && (event as any).usage) {
+          outputTokens = (event as any).usage.output_tokens || 0;
+        }
+      }
+
+      // Get final message for accurate token counts
+      const finalMessage = await stream.finalMessage();
+      inputTokens = finalMessage.usage?.input_tokens || 0;
+      outputTokens = finalMessage.usage?.output_tokens || 0;
+
+      return {
+        content: content.trim(),
+        duration: Date.now() - startTime,
+        tokensUsed: inputTokens + outputTokens,
+      };
+    }
+
+    // Non-streaming path
+    const response = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      system: options.systemPrompt || undefined,
+      messages,
+    });
+
+    const content = response.content
+      .filter((block: any) => block.type === 'text')
+      .map((block: any) => block.text)
+      .join('');
+
+    const tokensUsed = (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
+
+    return {
+      content: content.trim(),
+      duration: Date.now() - startTime,
+      tokensUsed,
+    };
+  }
+
+  // -----------------------------------------------------------------------
+  // CLI subprocess path
+  // -----------------------------------------------------------------------
+
+  private sendCLI(prompt: string, options: ClaudeOptions): Promise<ClaudeResponse> {
     const startTime = Date.now();
     const optimizedPrompt = this.optimizer.compress(prompt);
     const estimatedTokens = this.optimizer.estimate(optimizedPrompt);
     this.logger.debug(
-      `[${this.currentProvider.name}] Estimated input tokens: ${estimatedTokens}`,
+      `[${this.currentProvider!.name}] Estimated input tokens: ${estimatedTokens}`,
     );
 
-    const args = this.currentProvider.buildArgs(optimizedPrompt, options);
-    const command = this.currentProvider.command;
-
+    const args = this.currentProvider!.buildArgs(optimizedPrompt, options);
+    const command = this.currentProvider!.command;
     const timeoutMs = options.timeout || 120_000;
-    const providerName = this.currentProvider.name;
+    const providerName = this.currentProvider!.name;
 
     return new Promise((resolve, reject) => {
       let finished = false;
@@ -367,18 +493,15 @@ export class ProviderBridge {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      // Close stdin immediately so the AI process knows no more input is coming
       proc.stdin.end();
 
       let stdout = '';
       let stderr = '';
 
-      // Kill process on timeout — prevents zombie processes
       timeoutId = setTimeout(() => {
         if (!finished) {
           finished = true;
           try { proc.kill('SIGTERM'); } catch { /* already dead */ }
-          // Force kill after 5 seconds if SIGTERM didn't work
           setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* ignore */ } }, 5000);
           reject(new Error(`AI provider "${providerName}" timed out after ${Math.round(timeoutMs / 1000)}s`));
         }
@@ -397,13 +520,13 @@ export class ProviderBridge {
       });
 
       proc.on('close', (code) => {
-        if (finished) return; // Already handled (timeout)
+        if (finished) return;
         finished = true;
         if (timeoutId) clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
 
         if (code !== 0) {
-          const errMsg = stderr.trim().slice(0, 500); // Cap error message length
+          const errMsg = stderr.trim().slice(0, 500);
           reject(
             new Error(`AI provider "${providerName}" exited with code ${code}${errMsg ? ': ' + errMsg : ''}`),
           );
@@ -439,9 +562,12 @@ export class ProviderBridge {
   // Internals
   // -----------------------------------------------------------------------
 
+  private hasAnthropicKey(): boolean {
+    return !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 10);
+  }
+
   private simulatedSend(prompt: string): Promise<ClaudeResponse> {
     const startTime = Date.now();
-    // Add a tiny async delay to mimic real latency
     return new Promise((resolve) => {
       const content = generateSimulationResponse(prompt);
       const duration = Date.now() - startTime;

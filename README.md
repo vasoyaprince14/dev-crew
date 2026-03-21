@@ -393,25 +393,43 @@ jobs:
 
 Dev-Crew auto-detects installed AI tools and picks the best one:
 
-| Provider | Detection | Priority |
-|---|---|---|
-| **Claude Code** | `claude --version` | 1 (highest) |
-| **Aider** | `aider --version` | 2 |
-| **GitHub Copilot** | `gh copilot` | 3 |
-| **OpenAI CLI** | `openai --version` | 4 |
-| **Ollama** | `ollama --version` | 5 |
-| **Simulation** | Always available | Fallback |
+| Provider | Detection | Priority | Streaming | Real Token Counts |
+|---|---|---|---|---|
+| **Claude API (Direct)** | `ANTHROPIC_API_KEY` env var | 1 (highest) | ✅ Real | ✅ Exact |
+| **Claude Code** | `claude --version` | 2 | ✅ Chunked | ❌ Estimated |
+| **Aider** | `aider --version` | 3 | ❌ | ❌ Estimated |
+| **GitHub Copilot** | `gh copilot` | 4 | ❌ | ❌ Estimated |
+| **OpenAI CLI** | `openai --version` | 5 | ❌ | ❌ Estimated |
+| **Ollama** | `ollama --version` | 6 | ❌ | ❌ Estimated |
+| **Simulation** | Always available | Fallback | — | — |
+
+### Direct Claude API (Recommended)
+
+The fastest and most efficient way to use Dev-Crew. No subprocess overhead — direct API calls with real streaming and exact token counts.
+
+```bash
+# Set your API key (get one at https://console.anthropic.com/settings/keys)
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Dev-Crew automatically uses the direct API when the key is set
+dev-crew
+
+# Optionally choose a specific model
+export ANTHROPIC_MODEL=claude-sonnet-4-20250514   # default
+export ANTHROPIC_MODEL=claude-haiku-4-5-20251001  # faster, cheaper
+```
+
+### Other Providers
 
 ```bash
 # Check available providers
 dev-crew doctor
 
 # Switch provider in interactive mode
-❯ /provider ollama
-✓ Ollama
-
-# Force simulation mode (no AI needed)
-❯ /provider simulation
+❯ /provider claude-api     # Direct API (needs ANTHROPIC_API_KEY)
+❯ /provider claude-code    # Claude Code CLI
+❯ /provider ollama         # Local Ollama
+❯ /provider simulation     # No AI needed
 ```
 
 **No providers installed?** Dev-Crew runs in **simulation mode** — you can explore every command and see the output format without any AI backend.

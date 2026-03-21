@@ -310,7 +310,10 @@ export async function interactiveCommand(): Promise<void> {
         case '/provider':
           if (!args) {
             console.log(`  ${C.dim}Current: ${providerInfo.name}${C.reset}`);
-            console.log(`  ${C.dim}Usage: /provider <claude-code|aider|copilot|openai|ollama|simulation>${C.reset}`);
+            console.log(`  ${C.dim}Usage: /provider <claude-api|claude-code|aider|copilot|openai|ollama|simulation>${C.reset}`);
+            if (!process.env.ANTHROPIC_API_KEY) {
+              console.log(`  ${C.dim}Tip: Set ANTHROPIC_API_KEY for fastest direct Claude API access${C.reset}`);
+            }
           } else {
             try {
               const info = await bridge.setProvider(args.trim());

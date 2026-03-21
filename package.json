@@ -1,7 +1,7 @@
 {
   "name": "dev-crew",
-  "version": "2.2.0",
-  "description": "AI-powered CLI with 24 agents for code review, debugging, testing, security audit, DevOps, API design, and more. Works with Claude, OpenAI, Copilot, Aider, Ollama.",
+  "version": "2.3.0",
+  "description": "AI-powered CLI with 24 agents for code review, debugging, testing, security audit, DevOps, API design, and more. Direct Claude API + Claude Code, OpenAI, Copilot, Aider, Ollama.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -126,6 +126,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "boxen": "^8.0.1",
     "chalk": "^5.6.2",
     "commander": "^14.0.3",
