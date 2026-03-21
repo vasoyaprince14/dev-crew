@@ -81,11 +81,13 @@ function showBrandedHelp() {
   console.log(`  ${bold('Dev-Crew')} ${dim(`v${v}`)}  ${dim('—')} Your AI-Powered Developer Team`);
   console.log(`  ${dim('by Prince Vasoya')}`);
   console.log();
-  console.log(`  ${bold('Usage:')} dev-crew ${dim('<command>')} ${dim('[options]')}`);
+  console.log(`  ${bold('Usage:')} dev-crew ${dim('[command] [options]')}`);
+  console.log(`         ${dim('Run with no args to start interactive mode')}`);
   console.log();
 
   // ── Getting Started ──
   printSection(green('Getting Started'), [
+    ['(no command)', 'Start interactive REPL (default)'],
     ['init', 'Initialize Dev-Crew in your project'],
     ['doctor', 'Check setup and system requirements'],
     ['interactive, i', 'Interactive REPL mode'],
@@ -204,9 +206,15 @@ program
 
 // Override default help to show branded version
 program.helpInformation = () => '';
-program.on('--help', () => {}); // suppress default
-program.action(() => {
-  showBrandedHelp();
+program.on('--help', () => { showBrandedHelp(); });
+program.action(async () => {
+  // If --help is explicitly passed, Commander handles it above.
+  // Otherwise, if stdin is a TTY, launch interactive mode like Claude Code.
+  if (process.stdin.isTTY) {
+    await interactiveCommand();
+  } else {
+    showBrandedHelp();
+  }
 });
 
 // ===== SETUP =====
