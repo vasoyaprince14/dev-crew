@@ -74,18 +74,29 @@ export class ActionLayer {
       return Promise.resolve(false);
     }
 
+    // Ensure stdin is flowing — previous readline.close() can pause it
+    if (process.stdin.isPaused()) {
+      process.stdin.resume();
+    }
+
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
     return new Promise((resolve) => {
+      let answered = false;
+
       rl.question(`${message} (y/n) `, (answer) => {
+        answered = true;
         rl.close();
         resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
       });
-      // Handle EOF (Ctrl+D)
-      rl.on('close', () => resolve(false));
+
+      // Handle EOF (Ctrl+D) — only if question wasn't answered yet
+      rl.on('close', () => {
+        if (!answered) resolve(false);
+      });
     });
   }
 }
