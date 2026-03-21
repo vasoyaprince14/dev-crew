@@ -5,6 +5,10 @@ on:
     - cron: '0 9 * * *'
   workflow_dispatch:
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   check-downloads:
     runs-on: ubuntu-latest
@@ -15,7 +19,6 @@ jobs:
           LAST_DAY=$(curl -sf https://api.npmjs.org/downloads/point/last-day/dev-crew | jq '.downloads // 0')
           LAST_WEEK=$(curl -sf https://api.npmjs.org/downloads/point/last-week/dev-crew | jq '.downloads // 0')
           LAST_MONTH=$(curl -sf https://api.npmjs.org/downloads/point/last-month/dev-crew | jq '.downloads // 0')
-          # Default to 0 if curl/jq fails
           LAST_DAY=${LAST_DAY:-0}
           LAST_WEEK=${LAST_WEEK:-0}
           LAST_MONTH=${LAST_MONTH:-0}
@@ -28,18 +31,3 @@ jobs:
           echo "| Yesterday | $LAST_DAY |" >> $GITHUB_STEP_SUMMARY
           echo "| Last 7 days | $LAST_WEEK |" >> $GITHUB_STEP_SUMMARY
           echo "| Last 30 days | $LAST_MONTH |" >> $GITHUB_STEP_SUMMARY
-
-      - name: Create issue if milestone hit
-        if: fromJSON(steps.stats.outputs.weekly) > 100
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const weekly = ${{ steps.stats.outputs.weekly }};
-            const monthly = ${{ steps.stats.outputs.monthly }};
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `npm milestone: ${weekly} downloads this week!`,
-              body: `## Download Stats\n- Weekly: ${weekly}\n- Monthly: ${monthly}\n\nKeep it up!`,
-              labels: ['stats']
-            });

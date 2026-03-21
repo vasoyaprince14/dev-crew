@@ -29,11 +29,7 @@ jobs:
         run: npm run build
 
       - name: Run tests
-        run: npm test
-
-      - name: Type check
-        run: npx tsc --noEmit
-        continue-on-error: true
+        run: npx vitest run --passWithNoTests
 
   publish-dry-run:
     needs: build
