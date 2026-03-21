@@ -56,7 +56,15 @@ export class TokenIntelligence {
     optimizedContext: string,
     systemPromptLength: number,
   ): TokenReport {
-    // Total raw size: read every file the user pointed at (what they'd paste manually)
+    // ── withDevCrew: what we actually sent ──
+    // This is the real, measured number: optimized context + system prompt
+    const optimizedContextTokens = estimateTokens(optimizedContext);
+    const systemPromptTokens = Math.ceil(systemPromptLength / CHARS_PER_TOKEN);
+    const withDevCrew = optimizedContextTokens + systemPromptTokens;
+
+    // ── withoutDevCrew: what user would need to send manually for same quality ──
+    // Without Dev-Crew, to get the SAME quality result the user would need to:
+    // 1. Read ALL files they pointed at (full content, no smart selection)
     let allFileTokens = 0;
     const allFilePaths: string[] = [];
 
@@ -76,32 +84,45 @@ export class TokenIntelligence {
       } catch { /* skip */ }
     }
 
-    // withoutDevCrew: all files raw + a rough estimate of what the user would type as instructions
-    const manualPromptEstimate = Math.max(200, Math.round(systemPromptLength * 0.3));
-    const withoutDevCrew = allFileTokens + manualPromptEstimate;
+    // 2. Manually write the context that Dev-Crew auto-generates:
+    //    - Project info (language, framework, database, etc.)
+    //    - Related files from dependency graph
+    //    - Git intelligence data (commit patterns, hotspots)
+    //    - Pattern library patterns
+    //    The optimizedContext INCLUDES auto-resolved dependencies and enrichments
+    //    that the user didn't provide — so the "raw" baseline must include the
+    //    same information the user would have to gather manually.
+    //
+    //    Fair estimate: user would paste ALL their raw files (no compression),
+    //    PLUS they'd need the equivalent context that Dev-Crew auto-gathered.
+    //    The auto-gathered context beyond the original files = optimizedContext - originalFileContent.
+    const autoGatheredContext = Math.max(0, optimizedContextTokens - allFileTokens);
 
-    // withDevCrew: the actual optimized context that was sent + the system prompt
-    const withDevCrew = estimateTokens(optimizedContext) + systemPromptLength;
+    // 3. Write their own instructions (system prompt equivalent).
+    //    A user writing instructions manually would write ~30% of what our
+    //    expert system prompt contains (they'd miss framework-specific rules,
+    //    severity classification, output format, etc.)
+    const manualInstructions = Math.max(100, Math.round(systemPromptTokens * 0.3));
 
+    // Without Dev-Crew total: raw files + auto-gathered context (they'd need it too)
+    //   + their manual instructions
+    // But they wouldn't know to gather the auto context, so they'd get a WORSE result.
+    // We compare apples-to-apples: same information, just sent inefficiently.
+    const withoutDevCrew = allFileTokens + autoGatheredContext + manualInstructions;
+
+    // ── Savings ──
+    // Dev-Crew's value: expert system prompt (better instructions than manual),
+    // smart file selection (when pointing at a directory), context compression,
+    // and the system prompt is reusable across turns.
+    //
+    // When withDevCrew > withoutDevCrew, it means our system prompt and enrichments
+    // ADD tokens but ADD quality. In that case, show the quality gain, not fake savings.
     const saved = Math.max(0, withoutDevCrew - withDevCrew);
 
-    // Honest breakdown — only things we actually do:
-
-    // 1. Smart file selection: we limit to ~10 relevant files instead of everything.
-    //    Measure: raw size of all files minus raw size of files that made it into optimizedContext.
-    const optimizedContextTokens = estimateTokens(optimizedContext);
+    // Breakdown
     const fileSelectionSaved = Math.max(0, allFileTokens - optimizedContextTokens);
-
-    // 2. Context compression: whitespace/blank-line removal (TokenOptimizer.compress).
-    //    This is modest — we don't strip comments or collapse boilerplate.
-    //    Estimate by comparing optimized context length to what's left after file selection.
     const contextCompressionSaved = Math.max(0, saved - fileSelectionSaved);
-
-    // 3. System prompt reuse: the structured system prompt replaces manual typing.
-    //    Already accounted for in the manualPromptEstimate vs systemPromptLength difference.
-    //    This can be negative (system prompt may be larger than what a user would type),
-    //    so we just report it as part of contextCompression above to keep numbers honest.
-    const systemPromptReuse = Math.max(0, systemPromptLength - manualPromptEstimate);
+    const systemPromptReuse = Math.max(0, systemPromptTokens - manualInstructions);
 
     return {
       withoutDevCrew,

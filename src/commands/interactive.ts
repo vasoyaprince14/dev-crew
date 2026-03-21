@@ -324,18 +324,23 @@ function showTokenSavings(tokenReport: { withoutDevCrew: number; withDevCrew: nu
   }
 
   const costPer1k = 0.003;
-  const costWithout = (tokenReport.withoutDevCrew * costPer1k) / 1000;
   const costWith = (tokenReport.withDevCrew * costPer1k) / 1000;
 
   console.log();
-  console.log(`  ${C.gray}Without Dev-Crew${C.reset}  ${C.dim}~${tokenReport.withoutDevCrew.toLocaleString()} tokens${C.reset}  ${C.dim}~$${costWithout.toFixed(4)}${C.reset}`);
-  console.log(`  ${C.brightGreen}With Dev-Crew${C.reset}     ${C.bold}~${tokenReport.withDevCrew.toLocaleString()} tokens${C.reset}  ${C.bold}~$${costWith.toFixed(4)}${C.reset}`);
+  console.log(`  ${C.brightCyan}Tokens used${C.reset}       ${C.bold}~${tokenReport.withDevCrew.toLocaleString()}${C.reset}  ${C.dim}~$${costWith.toFixed(4)}${C.reset}`);
 
-  if (tokenReport.percentage > 0) {
+  if (tokenReport.saved > 0 && tokenReport.percentage > 0) {
+    const costWithout = (tokenReport.withoutDevCrew * costPer1k) / 1000;
+    console.log(`  ${C.gray}Manual estimate${C.reset}   ${C.dim}~${tokenReport.withoutDevCrew.toLocaleString()}${C.reset}  ${C.dim}~$${costWithout.toFixed(4)}${C.reset}`);
     const barLen = 20;
     const filledLen = Math.round((tokenReport.percentage / 100) * barLen);
     const bar = `${C.brightGreen}${'█'.repeat(filledLen)}${C.gray}${'░'.repeat(barLen - filledLen)}${C.reset}`;
     console.log(`  ${C.brightGreen}Saved${C.reset}             ${bar} ${C.bold}${C.brightGreen}${tokenReport.percentage}%${C.reset} ${C.gray}(~${tokenReport.saved.toLocaleString()} tokens)${C.reset}`);
+  } else if (tokenReport.withDevCrew > tokenReport.withoutDevCrew) {
+    // Dev-Crew added tokens for quality (expert prompt, auto-resolved deps, git intel)
+    const added = tokenReport.withDevCrew - tokenReport.withoutDevCrew;
+    console.log(`  ${C.brightCyan}Quality boost${C.reset}     ${C.dim}+${added.toLocaleString()} tokens of expert context${C.reset}`);
+    console.log(`  ${C.dim}  (system prompt, dependency graph, git intelligence)${C.reset}`);
   }
   console.log();
 }

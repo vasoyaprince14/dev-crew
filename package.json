@@ -1,6 +1,6 @@
 {
   "name": "dev-crew",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "AI-powered CLI with 24 agents for code review, debugging, testing, security audit, DevOps, API design, and more. Works with Claude, OpenAI, Copilot, Aider, Ollama.",
   "type": "module",
   "main": "dist/index.js",
