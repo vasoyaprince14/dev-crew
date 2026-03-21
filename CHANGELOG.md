@@ -2,6 +2,35 @@
 
 All notable changes to Dev-Crew are documented here.
 
+## [4.0.0] - 2026-03-21
+
+### Added — "Startup in a CLI"
+- **15 new agents** (40 total) — complete startup launch toolkit:
+  - `solution-architect` — Recommends optimal tech stack based on requirements
+  - `db-builder` — Generates complete database schemas, migrations, seed data
+  - `db-analytics` — Query performance analysis, slow query detection, index optimization
+  - `ui-designer` — Design systems, component libraries, page layouts
+  - `ui-analytics` — Frontend performance, bundle analysis, Core Web Vitals
+  - `seo` — SEO audit, meta tags, structured data, sitemap generation
+  - `landing-page` — Conversion-optimized landing page generation
+  - `auth-architect` — Complete auth system design (JWT, OAuth, MFA, RBAC)
+  - `payment` — Stripe/PayPal integration, subscriptions, billing
+  - `launch` — Production launch checklist, go-live readiness audit
+  - `pitch` — Pitch decks, investor materials, market sizing
+  - `email-builder` — Email templates, transactional emails, delivery setup
+  - `marketing` — Go-to-market strategy, content plans, growth campaigns
+  - `product-analyst` — Product metrics, feature prioritization, roadmap
+  - `growth` — CEO/COO/CRO strategy, operations, revenue optimization
+- **Solution Architect in create pipeline** — now recommends tech stack before building
+- **"Built with Dev-Crew" badge** — auto-added to generated projects' README
+- **User feedback system** — rates experience after `dev-crew create`, stored locally
+- **`dev-crew showcase`** — view your projects built with Dev-Crew and community info
+- **Generic agent command factory** — `makeAgentCommand()` for consistent agent CLI pattern
+- 14 new npm keywords for startup/business discoverability
+
+### Fixed
+- Discovery readline closing stdin, breaking subsequent confirm prompts
+
 ## [3.0.0] - 2026-03-21
 
 ### Added

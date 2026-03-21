@@ -86,6 +86,11 @@ Respond ONLY with JSON: { "questions": ["question1", "question2", ...] }`,
     }
 
     rl.close();
+    // Re-resume stdin — readline.close() can pause stdin which breaks subsequent
+    // readline instances (they get an immediate 'close' event)
+    if (process.stdin.isPaused()) {
+      process.stdin.resume();
+    }
 
     // Parse answers into structured result
     const features = this.extractFeatures(answers);

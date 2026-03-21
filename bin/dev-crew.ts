@@ -72,6 +72,8 @@ import { buildCommand } from '../src/commands/build.js';
 import { createCommand } from '../src/commands/create.js';
 import { deployCommand } from '../src/commands/deploy.js';
 import { interactiveCommand } from '../src/commands/interactive.js';
+import { makeAgentCommand } from '../src/commands/agent-command.js';
+import { showcaseCommand } from '../src/commands/showcase.js';
 
 // ---------------------------------------------------------------------------
 // ANSI helpers
@@ -147,7 +149,30 @@ function showBrandedHelp() {
     ['scaffold <description>', 'Scaffold a new project'],
     ['build <description>', 'Build a feature into your project'],
     ['db-architect [input]', 'Schema design & query optimization'],
+    ['db-builder [input]', 'Generate schemas, migrations, seeds'],
+    ['db-analytics [input]', 'Query performance & index analysis'],
     ['api-architect [input]', 'API design review'],
+    ['auth-architect [input]', 'Auth system design (JWT, OAuth, MFA)'],
+    ['payment [input]', 'Stripe/PayPal integration'],
+    ['email-builder [input]', 'Email templates & delivery setup'],
+  ]);
+
+  // ── UI & Frontend ──
+  printSection(magenta('UI & Frontend'), [
+    ['ui-designer [input]', 'Design systems & component generation'],
+    ['ui-analytics [input]', 'Bundle analysis & Core Web Vitals'],
+    ['landing-page [input]', 'Landing page generation'],
+    ['seo [input]', 'SEO audit & optimization'],
+  ]);
+
+  // ── Startup & Business ──
+  printSection(yellow('Startup & Business'), [
+    ['solution-architect [input]', 'Tech stack recommendations'],
+    ['product-analyst [input]', 'Product metrics & roadmap'],
+    ['marketing [input]', 'Go-to-market & growth strategy'],
+    ['growth [input]', 'CEO/COO/CRO strategy & operations'],
+    ['pitch [input]', 'Pitch decks & investor materials'],
+    ['launch [input]', 'Production launch checklist'],
   ]);
 
   // ── Mobile ──
@@ -469,9 +494,34 @@ program
   .action(dbArchitectCommand);
 
 program
+  .command('db-builder [input]')
+  .description('Generate complete database schemas, migrations, and seed data')
+  .action(makeAgentCommand('db-builder'));
+
+program
+  .command('db-analytics [input]')
+  .description('Database performance analysis and index optimization')
+  .action(makeAgentCommand('db-analytics'));
+
+program
   .command('api-architect [path-or-question]')
   .description('API design review and best practices')
   .action(apiArchitectCommand);
+
+program
+  .command('auth-architect [input]')
+  .description('Design complete auth systems — JWT, OAuth, MFA, RBAC')
+  .action(makeAgentCommand('auth-architect'));
+
+program
+  .command('payment [input]')
+  .description('Stripe/PayPal payment integration and billing setup')
+  .action(makeAgentCommand('payment'));
+
+program
+  .command('email-builder [input]')
+  .description('Email templates, transactional emails, and delivery setup')
+  .action(makeAgentCommand('email-builder'));
 
 // ===== V2: MOBILE DEVELOPMENT =====
 program
@@ -494,6 +544,58 @@ program
   .description('Android/Kotlin development and review')
   .action(androidCommand);
 
+// ===== UI & FRONTEND =====
+program
+  .command('ui-designer [input]')
+  .description('Generate design systems, component libraries, and UI layouts')
+  .action(makeAgentCommand('ui-designer'));
+
+program
+  .command('ui-analytics [input]')
+  .description('Frontend performance, bundle analysis, Core Web Vitals')
+  .action(makeAgentCommand('ui-analytics'));
+
+program
+  .command('landing-page [input]')
+  .description('Generate conversion-optimized landing pages')
+  .action(makeAgentCommand('landing-page'));
+
+program
+  .command('seo [input]')
+  .description('SEO audit, meta tags, structured data, sitemap')
+  .action(makeAgentCommand('seo'));
+
+// ===== STARTUP & BUSINESS =====
+program
+  .command('solution-architect [input]')
+  .description('Tech stack recommendations based on requirements')
+  .action(makeAgentCommand('solution-architect'));
+
+program
+  .command('product-analyst [input]')
+  .description('Product metrics, feature prioritization, roadmap')
+  .action(makeAgentCommand('product-analyst'));
+
+program
+  .command('marketing [input]')
+  .description('Go-to-market strategy, content plans, growth')
+  .action(makeAgentCommand('marketing'));
+
+program
+  .command('growth [input]')
+  .description('CEO/COO/CRO strategy — growth, operations, revenue')
+  .action(makeAgentCommand('growth'));
+
+program
+  .command('pitch [input]')
+  .description('Pitch decks, investor materials, market sizing')
+  .action(makeAgentCommand('pitch'));
+
+program
+  .command('launch [input]')
+  .description('Production launch checklist and go-live audit')
+  .action(makeAgentCommand('launch'));
+
 // ===== V2: QUALITY & PERFORMANCE =====
 program
   .command('performance [path]')
@@ -504,6 +606,12 @@ program
   .command('accessibility [path]')
   .description('WCAG compliance and accessibility audit')
   .action(accessibilityCommand);
+
+// ===== SHOWCASE =====
+program
+  .command('showcase')
+  .description('View projects built with Dev-Crew and community info')
+  .action(showcaseCommand);
 
 // ===== INTERACTIVE MODE =====
 program

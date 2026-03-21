@@ -40,7 +40,22 @@ const KEYWORD_MAP: Array<{ keywords: string[]; agentId: string }> = [
   { keywords: ['api design', 'endpoint', 'rest api', 'graphql', 'api review'], agentId: 'api-architect' },
   { keywords: ['monitor', 'alert', 'logging', 'observability', 'metrics'], agentId: 'monitoring' },
   { keywords: ['scaffold', 'full stack', 'fullstack', 'generate project'], agentId: 'fullstack-builder' },
-  { keywords: ['create app', 'build app', 'build me', 'create project', 'new app', 'startup', 'vibe code', 'vibe coding', 'generate app'], agentId: 'app-creator' },
+  { keywords: ['create app', 'build app', 'build me', 'create project', 'new app', 'vibe code', 'vibe coding', 'generate app'], agentId: 'app-creator' },
+  { keywords: ['build database', 'create schema', 'generate migration', 'seed data', 'db builder'], agentId: 'db-builder' },
+  { keywords: ['slow query', 'query performance', 'db analytics', 'database analytics', 'index optimization'], agentId: 'db-analytics' },
+  { keywords: ['ui design', 'design system', 'component library', 'generate ui', 'ui designer'], agentId: 'ui-designer' },
+  { keywords: ['bundle size', 'web vitals', 'ui analytics', 'frontend performance', 'lighthouse'], agentId: 'ui-analytics' },
+  { keywords: ['seo', 'meta tags', 'sitemap', 'search engine', 'open graph', 'structured data'], agentId: 'seo' },
+  { keywords: ['landing page', 'homepage', 'marketing page', 'hero section'], agentId: 'landing-page' },
+  { keywords: ['authentication', 'login system', 'signup', 'oauth', 'jwt', 'auth'], agentId: 'auth-architect' },
+  { keywords: ['payment', 'stripe', 'billing', 'subscription', 'checkout', 'invoice'], agentId: 'payment' },
+  { keywords: ['launch', 'go live', 'production ready', 'ship it', 'production checklist'], agentId: 'launch' },
+  { keywords: ['pitch deck', 'investor', 'fundraising', 'pitch'], agentId: 'pitch' },
+  { keywords: ['email template', 'transactional email', 'email setup', 'newsletter'], agentId: 'email-builder' },
+  { keywords: ['tech stack', 'which framework', 'recommend stack', 'solution architect', 'what technology'], agentId: 'solution-architect' },
+  { keywords: ['marketing', 'go to market', 'product hunt', 'content strategy', 'social media'], agentId: 'marketing' },
+  { keywords: ['product roadmap', 'feature priority', 'product metrics', 'product analyst', 'north star'], agentId: 'product-analyst' },
+  { keywords: ['growth strategy', 'revenue', 'startup advice', 'unit economics', 'hiring plan', 'okr'], agentId: 'growth' },
 ];
 
 // ---------------------------------------------------------------------------

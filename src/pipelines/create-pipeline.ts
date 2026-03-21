@@ -162,12 +162,31 @@ export class CreatePipeline {
   private getStages(): PipelineStage[] {
     return [
       {
+        name: 'Solution Design',
+        agent: 'solution-architect',
+        icon: '\u{1F9E0}',
+        description: 'Recommending optimal tech stack for your requirements',
+        maxTokens: 8192,
+        buildQuery: (spec) => {
+          return `Recommend the best tech stack for this application:
+
+"${spec.description}"
+
+User preferences:
+${Object.entries(spec.answers).map(([k, v]) => `- ${v}`).join('\n')}
+${spec.techStack !== 'Node.js + React + PostgreSQL' ? `\nUser prefers: ${spec.techStack}` : ''}
+
+Consider: scalability, developer speed, community support, cost, and the specific requirements above. Recommend frontend, backend, database, auth, payments, hosting, and any other relevant services.`;
+        },
+      },
+      {
         name: 'Requirements',
         agent: 'ba',
         icon: '\u{1F4CB}',
         description: 'Analyzing requirements and creating specs',
         maxTokens: 8192,
-        buildQuery: (spec) => {
+        buildQuery: (spec, prev) => {
+          const solutionDesign = prev.get('Solution Design') || '';
           return `Create a complete product requirements document for this application:
 
 "${spec.description}"
@@ -176,6 +195,7 @@ User Requirements:
 ${Object.entries(spec.answers).map(([k, v]) => `- ${v}`).join('\n')}
 
 Tech Stack: ${spec.techStack}
+${solutionDesign ? `\nSolution Architecture:\n${this.truncate(solutionDesign, 2000)}` : ''}
 
 Provide:
 1. Core user stories (who, what, why)

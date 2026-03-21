@@ -95,7 +95,21 @@ export async function createCommand(description: string, options: CreateOptions)
     }
   }
 
-  // Step 5: Write files
+  // Step 5: Add "Built with Dev-Crew" badge to generated README
+  const readmeFile = result.files.find(f => f.path.toLowerCase() === 'readme.md');
+  if (readmeFile) {
+    const badge = '\n\n---\n\n<p align="center">\n  <sub>Built with <a href="https://github.com/vasoyaprince14/dev-crew">Dev-Crew</a> — AI-powered app builder</sub><br/>\n  <img src="https://img.shields.io/badge/Built%20with-Dev--Crew-blue?style=flat-square" alt="Built with Dev-Crew" />\n</p>\n';
+    readmeFile.content = readmeFile.content + badge;
+  } else {
+    // Add a README with badge if none generated
+    result.files.push({
+      path: 'README.md',
+      content: `# ${result.projectName}\n\nGenerated with [Dev-Crew](https://github.com/vasoyaprince14/dev-crew).\n\n---\n\n<p align="center">\n  <img src="https://img.shields.io/badge/Built%20with-Dev--Crew-blue?style=flat-square" alt="Built with Dev-Crew" />\n</p>\n`,
+      description: 'Project README',
+    });
+  }
+
+  // Write files
   const writeResult = await fileWriter.writeAll(outputDir, result.files);
 
   console.log();
@@ -160,6 +174,46 @@ export async function createCommand(description: string, options: CreateOptions)
     }
     console.log(`  ${chalk.cyan(hasPackageJson && options.install !== false ? '2.' : '3.')} Check .env.example and create .env`);
     console.log(`  ${chalk.cyan(hasPackageJson && options.install !== false ? '3.' : '4.')} npm run dev`);
+  }
+
+  // Step 8: Ask for feedback
+  console.log();
+  if (process.stdin.isTTY) {
+    const rl = await import('node:readline');
+    const iface = rl.createInterface({ input: process.stdin, output: process.stdout });
+    const rating = await new Promise<string>((resolve) => {
+      iface.question(chalk.dim('  Rate your experience (1-5, Enter to skip): '), (answer) => {
+        iface.close();
+        resolve(answer.trim());
+      });
+      iface.on('close', () => resolve(''));
+    });
+    if (rating && /^[1-5]$/.test(rating)) {
+      try {
+        const os = await import('node:os');
+        const feedbackDir = path.join(os.default.homedir(), '.dev-crew');
+        fs.mkdirSync(feedbackDir, { recursive: true });
+        const feedbackFile = path.join(feedbackDir, 'feedback.json');
+        let feedbackData: Array<{ date: string; rating: number; project: string }> = [];
+        try {
+          feedbackData = JSON.parse(fs.readFileSync(feedbackFile, 'utf-8'));
+        } catch { /* new file */ }
+        feedbackData.push({
+          date: new Date().toISOString(),
+          rating: parseInt(rating, 10),
+          project: result.projectName,
+        });
+        fs.writeFileSync(feedbackFile, JSON.stringify(feedbackData, null, 2));
+        const stars = parseInt(rating, 10);
+        if (stars >= 4) {
+          console.log(chalk.green('  Thanks! If you like Dev-Crew, star us on GitHub:'));
+          console.log(chalk.cyan('  https://github.com/vasoyaprince14/dev-crew'));
+        } else {
+          console.log(chalk.yellow('  Thanks for the feedback! Help us improve:'));
+          console.log(chalk.cyan('  https://github.com/vasoyaprince14/dev-crew/issues'));
+        }
+      } catch { /* non-critical */ }
+    }
   }
 
   console.log();

@@ -10,8 +10,8 @@
 <h1 align="center">Dev-Crew</h1>
 
 <p align="center">
-  <strong>Build Complete Apps from a Single Prompt — 25 AI Agents, One CLI</strong><br/>
-  <sub>App builder + code review, testing, security, DevOps. Works on Claude Code. Free & open source.</sub>
+  <strong>Build & Launch Startups from a Single Prompt — 40 AI Agents, One CLI</strong><br/>
+  <sub>App builder + solution architect + marketing + pitch deck + payments + auth + SEO + launch. Free & open source.</sub>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@ npm install -g dev-crew
 # Build a complete app
 dev-crew create "build an uber clone with React and Node.js"
 
-# Or use any of the 25 agents
+# Or use any of the 40 agents
 dev-crew review @src/app.ts
 dev-crew test @src/auth.ts
 dev-crew security @src/
@@ -233,7 +233,7 @@ dev-crew i       # shorthand
 | Command | Description |
 |---|---|
 | `/help` | Show all commands and usage examples |
-| `/agents` | List all 25 agents with descriptions |
+| `/agents` | List all 40 agents with descriptions |
 | `/clear` | Clear screen |
 | `/diff` | Show recent git changes |
 | `/provider <name>` | Switch AI provider |
@@ -797,7 +797,7 @@ Dev-Crew asks clarifying questions, then generates every file — frontend, back
 
 ### Can I use Dev-Crew for vibe coding?
 
-Yes. Dev-Crew is built for vibe coding — describe what you want in plain English and get production-ready code. Use `dev-crew create` for new apps, or use any of the 25 agents in interactive mode for ongoing development.
+Yes. Dev-Crew is built for vibe coding — describe what you want in plain English and get production-ready code. Use `dev-crew create` for new apps, or use any of the 40 agents in interactive mode for ongoing development.
 
 ### What AI tools does Dev-Crew work with?
 

@@ -24,6 +24,21 @@ import { MonitoringAgent } from './monitoring/index.js';
 import { PerformanceAgent } from './performance/index.js';
 import { AccessibilityAgent } from './accessibility/index.js';
 import { AppCreatorAgent } from './app-creator/index.js';
+import { DBBuilderAgent } from './db-builder/index.js';
+import { DBAnalyticsAgent } from './db-analytics/index.js';
+import { UIDesignerAgent } from './ui-designer/index.js';
+import { UIAnalyticsAgent } from './ui-analytics/index.js';
+import { SEOAgent } from './seo/index.js';
+import { LandingPageAgent } from './landing-page/index.js';
+import { AuthArchitectAgent } from './auth-architect/index.js';
+import { PaymentAgent } from './payment/index.js';
+import { LaunchAgent } from './launch/index.js';
+import { PitchAgent } from './pitch/index.js';
+import { EmailBuilderAgent } from './email-builder/index.js';
+import { SolutionArchitectAgent } from './solution-architect/index.js';
+import { MarketingAgent } from './marketing/index.js';
+import { ProductAnalystAgent } from './product-analyst/index.js';
+import { GrowthAgent } from './growth/index.js';
 import type { AgentConfig } from '../types/agent.js';
 import type { ProjectInfo } from '../types/config.js';
 
@@ -293,6 +308,159 @@ const BUILT_IN_AGENTS: Record<string, AgentEntry> = {
       includeSchema: true,
       includeConfig: true,
       contextDepth: 3,
+    },
+  },
+  'db-builder': {
+    cls: DBBuilderAgent,
+    defaultConfig: {
+      name: 'db-builder',
+      description: 'Generate complete database schemas, migrations, and seed data',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeSchema: true,
+      contextDepth: 2,
+    },
+  },
+  'db-analytics': {
+    cls: DBAnalyticsAgent,
+    defaultConfig: {
+      name: 'db-analytics',
+      description: 'Database performance analysis, slow query detection, index optimization',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeSchema: true,
+      contextDepth: 2,
+    },
+  },
+  'ui-designer': {
+    cls: UIDesignerAgent,
+    defaultConfig: {
+      name: 'ui-designer',
+      description: 'Design systems, component libraries, and UI generation',
+      tier: 'pro',
+      maxTokens: 12288,
+      contextDepth: 2,
+    },
+  },
+  'ui-analytics': {
+    cls: UIAnalyticsAgent,
+    defaultConfig: {
+      name: 'ui-analytics',
+      description: 'Frontend performance, bundle analysis, Core Web Vitals',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  seo: {
+    cls: SEOAgent,
+    defaultConfig: {
+      name: 'seo',
+      description: 'SEO audit, meta tags, structured data, sitemap generation',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  'landing-page': {
+    cls: LandingPageAgent,
+    defaultConfig: {
+      name: 'landing-page',
+      description: 'Generate conversion-optimized landing pages',
+      tier: 'pro',
+      maxTokens: 12288,
+      contextDepth: 2,
+    },
+  },
+  'auth-architect': {
+    cls: AuthArchitectAgent,
+    defaultConfig: {
+      name: 'auth-architect',
+      description: 'Design complete auth systems — JWT, OAuth, MFA, RBAC',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  payment: {
+    cls: PaymentAgent,
+    defaultConfig: {
+      name: 'payment',
+      description: 'Stripe/PayPal integration, subscriptions, billing',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  launch: {
+    cls: LaunchAgent,
+    defaultConfig: {
+      name: 'launch',
+      description: 'Production launch checklist, go-live readiness audit',
+      tier: 'pro',
+      maxTokens: 8192,
+      includeConfig: true,
+      contextDepth: 2,
+    },
+  },
+  pitch: {
+    cls: PitchAgent,
+    defaultConfig: {
+      name: 'pitch',
+      description: 'Pitch decks, investor materials, market sizing',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  'email-builder': {
+    cls: EmailBuilderAgent,
+    defaultConfig: {
+      name: 'email-builder',
+      description: 'Email templates, transactional emails, delivery setup',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  'solution-architect': {
+    cls: SolutionArchitectAgent,
+    defaultConfig: {
+      name: 'solution-architect',
+      description: 'Tech stack recommendations based on requirements and scale',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 3,
+    },
+  },
+  marketing: {
+    cls: MarketingAgent,
+    defaultConfig: {
+      name: 'marketing',
+      description: 'Go-to-market strategy, content plans, launch campaigns',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  'product-analyst': {
+    cls: ProductAnalystAgent,
+    defaultConfig: {
+      name: 'product-analyst',
+      description: 'Product metrics, feature prioritization, roadmap planning',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
+    },
+  },
+  growth: {
+    cls: GrowthAgent,
+    defaultConfig: {
+      name: 'growth',
+      description: 'CEO/COO/CRO strategy — growth, operations, revenue optimization',
+      tier: 'pro',
+      maxTokens: 8192,
+      contextDepth: 2,
     },
   },
 };
