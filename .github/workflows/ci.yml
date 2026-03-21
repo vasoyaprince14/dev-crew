@@ -28,7 +28,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      # vitest v4 requires Node 20+ (uses node:util styleText)
       - name: Run tests
+        if: matrix.node-version >= 20
         run: npx vitest run --passWithNoTests
 
   publish-dry-run:
