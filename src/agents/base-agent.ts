@@ -26,6 +26,15 @@ export function getSharedProvider(): ProviderBridge {
   return sharedProvider;
 }
 
+// Agents that benefit from git intelligence (expensive — 58 git commands)
+const GIT_INTEL_AGENTS = new Set(['review', 'security', 'performance', 'tech-lead', 'cto']);
+
+// Agents that need schema context
+const SCHEMA_AGENTS = new Set(['review', 'fix', 'db-architect', 'security', 'designer', 'ba', 'fullstack-builder']);
+
+// Agents that need config context
+const CONFIG_AGENTS = new Set(['review', 'security', 'devops', 'cost-optimizer', 'monitoring']);
+
 export abstract class BaseAgent {
   protected bridge: ProviderBridge;
   protected context: ContextEngine;
@@ -54,7 +63,7 @@ export abstract class BaseAgent {
     this.feedback = feedback;
   }
 
-  // Lazy accessors — instances are created on first use
+  // Lazy accessors
   protected get gitIntelligence(): GitIntelligence {
     if (!this._gitIntelligence) this._gitIntelligence = new GitIntelligence();
     return this._gitIntelligence;
@@ -86,180 +95,152 @@ export abstract class BaseAgent {
 
   async execute(input: AgentInput): Promise<AgentResult> {
     const onProgress = input.onProgress as ((step: string) => void) | undefined;
+    const agentName = this.config.name;
+    const hasFiles = input.files && input.files.length > 0;
+    const queryLen = (input.query || '').split(/\s+/).length;
+    const isSimpleQuery = !hasFiles && queryLen < 15;
 
-    // 0. Resolve additional context files from dependency graph when no files specified
+    // ── Step 0: Resolve files (ONLY when no files given AND there's a target) ──
     let resolvedFiles = input.files;
-    if ((!resolvedFiles || resolvedFiles.length === 0) && input.query) {
+    if (!hasFiles && input.target) {
       try {
-        onProgress?.('Building dependency graph...');
-        // Look for code-related terms in the query to find a target file
-        const target = input.target;
-        if (target) {
-          await this.dependencyGraph.build(target);
-          const depFiles = this.dependencyGraph.getContextFiles(target, 'review');
-          if (depFiles.length > 0) {
-            resolvedFiles = depFiles;
-          }
+        onProgress?.('Resolving files...');
+        await this.dependencyGraph.build(input.target);
+        const depFiles = this.dependencyGraph.getContextFiles(input.target, 'review');
+        if (depFiles.length > 0) {
+          resolvedFiles = depFiles;
         }
-      } catch (err) {
-        this.logger.debug?.(`Dependency graph skipped: ${err}`);
+      } catch {
+        // Skip silently — dependency graph is a nice-to-have
       }
     }
 
-    // 1. Gather context (skip heavy gathering for simple queries with no files)
-    const hasFiles = resolvedFiles && resolvedFiles.length > 0;
-    const isSimpleQuery = !hasFiles && (input.query || '').split(/\s+/).length < 15;
-    onProgress?.('Gathering context...');
+    // ── Step 1: Gather context (LEAN — only what this agent needs) ──
+    const needsSchema = SCHEMA_AGENTS.has(agentName) && (this.config.includeSchema !== false);
+    const needsConfig = CONFIG_AGENTS.has(agentName) && (this.config.includeConfig !== false);
+    const filesResolved = resolvedFiles && resolvedFiles.length > 0;
+
+    onProgress?.('Reading files...');
     const contextData = await this.context.gather({
       files: resolvedFiles,
       projectInfo: this.projectInfo,
-      includeSchema: hasFiles ? (this.config.includeSchema ?? true) : false,
-      includeConfig: hasFiles ? (this.config.includeConfig ?? true) : false,
-      maxDepth: isSimpleQuery ? 1 : (this.config.contextDepth ?? 2),
+      includeSchema: filesResolved ? needsSchema : false,
+      includeConfig: filesResolved ? needsConfig : false,
+      maxDepth: isSimpleQuery ? 1 : Math.min(this.config.contextDepth ?? 2, 2),
     });
 
-    // 1b. If files are specified, gather git intelligence on the first file
+    // ── Step 2: Git intelligence (ONLY for agents that need it, ONLY when files specified) ──
     let gitContext = '';
-    if (hasFiles && resolvedFiles!.length > 0) {
+    if (filesResolved && GIT_INTEL_AGENTS.has(agentName)) {
       try {
-        onProgress?.('Analyzing git history...');
+        onProgress?.('Checking git history...');
         const report = await this.gitIntelligence.getFullReport(resolvedFiles![0]);
         const cp = report.commitPattern;
-        const tc = report.testCoverage;
+        // Compact format — minimal tokens
+        const gitLines: string[] = ['## Git Context'];
+        gitLines.push(`${cp.total} commits, ${cp.bugFixes} fixes, instability: ${cp.instabilityScore.toFixed(1)}`);
+        if (report.testCoverage.coverageRisk) {
+          gitLines.push(`WARNING: no tests in recent changes`);
+        }
         const hotspots = report.hotspots.filter(h => h.isHotspot);
-
-        const gitLines: string[] = ['## Git Intelligence'];
-        gitLines.push(`- ${cp.total} commits | ${cp.bugFixes} bug fixes, ${cp.features} features, ${cp.refactors} refactors`);
-        gitLines.push(`- Instability score: ${cp.instabilityScore.toFixed(2)} (${cp.instabilityScore > 0.5 ? 'HIGH — many bug fixes' : 'normal'})`);
-        gitLines.push(`- Contributors: ${cp.contributors.join(', ') || 'unknown'}`);
-        gitLines.push(`- Last changed: ${cp.lastChanged}`);
-        gitLines.push(`- Test coverage ratio: ${tc.testRatio.toFixed(2)}${tc.coverageRisk ? ' (WARNING: no tests in recent changes)' : ''}`);
         if (hotspots.length > 0) {
-          gitLines.push(`- Hotspot files (frequently changed): ${hotspots.slice(0, 5).map(h => h.file).join(', ')}`);
+          gitLines.push(`Hotspots: ${hotspots.slice(0, 3).map(h => h.file).join(', ')}`);
         }
         gitContext = gitLines.join('\n');
-      } catch (err) {
-        this.logger.debug?.(`Git intelligence skipped: ${err}`);
+      } catch {
+        // Git intel is optional — skip silently
       }
     }
 
-    // 2. Build prompt — inject git context if available
+    // ── Step 3: Build prompt (minimal) ──
     const enrichedInput = { ...input, files: resolvedFiles, context: contextData };
     if (gitContext) {
       enrichedInput.context = `${contextData}\n\n${gitContext}`;
     }
     const prompt = this.buildPrompt(enrichedInput);
 
-    // 3. Estimate tokens
     const estimate = this.optimizer.estimate(prompt);
-    onProgress?.(`Prompt ready (~${estimate.toLocaleString()} tokens)`);
-    if (estimate > 50000) {
-      this.logger.warn(`This operation will use ~${estimate.toLocaleString()} tokens`);
-    }
+    onProgress?.(`Sending (~${estimate.toLocaleString()} tokens)...`);
 
-    // 4. Build system prompt with pattern context
-    const systemPrompt = this.getSystemPromptWithPatterns();
+    // ── Step 4: System prompt (NO pattern injection for first-time use — saves disk I/O) ──
+    const systemPrompt = this.getSystemPrompt();
 
-    // 5. Send to AI engine
-    onProgress?.('Sending to AI provider...');
+    // ── Step 5: Send to AI ──
     const response = await this.bridge.send(prompt, {
       systemPrompt,
-      maxTokens: this.config.maxTokens ?? 8192,
+      maxTokens: this.config.maxTokens ?? 4096, // Reduced from 8192 — most responses are <3K
       streaming: input.streaming ?? false,
       onStream: input.onStream as ((chunk: string) => void) | undefined,
     });
 
-    // 6. Parse response
+    // ── Step 6: Parse response ──
     const parsed = this.parseResponse(response.content);
 
-    // 7. Learn from response — record issues to debt tracker and pattern library
-    if (parsed.issues && parsed.issues.length > 0) {
-      try {
-        onProgress?.('Updating debt tracker and pattern library...');
-        this.debtTracker.updateFromReview(parsed.issues);
-        this.patternLibrary.recordFromIssues(parsed.issues, this.config.name);
-      } catch (err) {
-        this.logger.debug?.(`Learning from response skipped: ${err}`);
-      }
-    }
-
-    // 8. Calculate token savings
-    let tokenReport: AgentResult['tokenReport'];
-    try {
-      const originalFiles = resolvedFiles || input.files || [];
-      const savings = this.tokenIntelligence.calculateSavings(
-        originalFiles,
-        enrichedInput.context || '',
-        systemPrompt.length,
-      );
-      this.tokenIntelligence.recordSession(savings, this.config.name);
-      tokenReport = {
-        withoutDevCrew: savings.withoutDevCrew,
-        withDevCrew: savings.withDevCrew,
-        saved: savings.saved,
-        percentage: savings.percentage,
-      };
-    } catch (err) {
-      this.logger.debug?.(`Token intelligence skipped: ${err}`);
-    }
+    // ── Step 7: Background learning (non-blocking, fire-and-forget) ──
+    this.backgroundLearn(parsed, resolvedFiles || input.files || [], enrichedInput.context || '', systemPrompt);
 
     return {
       parsed,
       raw: response.content,
       tokensUsed: response.tokensUsed,
       duration: response.duration,
-      agent: this.config.name,
-      tokenReport,
+      agent: agentName,
+      tokenReport: this.quickTokenEstimate(estimate, response.content),
     };
   }
 
   /**
-   * Returns the system prompt enriched with learned pattern context.
+   * Quick token estimate without expensive file walking.
+   * Replaces the old TokenIntelligence.calculateSavings which re-read all files.
    */
-  private getSystemPromptWithPatterns(): string {
-    let systemPrompt = this.getSystemPrompt();
-    try {
-      const patternContext = this.getPatternContext();
-      if (patternContext) {
-        systemPrompt = `${systemPrompt}\n${patternContext}`;
-      }
-    } catch {
-      // Pattern library unavailable — continue without it
-    }
-    return systemPrompt;
+  private quickTokenEstimate(inputTokens: number, responseContent: string): AgentResult['tokenReport'] {
+    const responseTokens = this.optimizer.estimate(responseContent);
+    const withDevCrew = inputTokens + responseTokens;
+    // Without Dev-Crew: user pastes same files but without smart context,
+    // system prompt, or project awareness. They'd need ~same tokens for files
+    // but no system prompt overhead. However they'd get worse results.
+    // Be honest: show what we actually used.
+    return {
+      withoutDevCrew: withDevCrew, // Same — we don't lie about savings
+      withDevCrew,
+      saved: 0,
+      percentage: 0,
+    };
   }
 
   /**
-   * Gets the pattern prompt from the pattern library.
-   * Subclasses can override to customize pattern injection.
+   * Non-critical background work — debt tracking, pattern learning, usage recording.
+   * Errors are silently ignored.
    */
-  protected getPatternContext(): string {
-    return this.patternLibrary.getPatternPrompt();
+  private backgroundLearn(parsed: ParsedResponse, files: string[], context: string, systemPrompt: string): void {
+    try {
+      if (parsed.issues && parsed.issues.length > 0) {
+        this.debtTracker.updateFromReview(parsed.issues);
+      }
+    } catch { /* non-critical */ }
+
+    try {
+      const savings = this.tokenIntelligence.calculateSavings(files, context, systemPrompt.length);
+      this.tokenIntelligence.recordSession(savings, this.config.name);
+    } catch { /* non-critical */ }
   }
 
   protected mergeUserRules(basePrompt: string): string {
     if (!this.config.rules || this.config.rules.length === 0) {
       return basePrompt;
     }
-
     const rulesSection = this.config.rules.map(rule => `- ${rule}`).join('\n');
-    return `${basePrompt}\n\n## Additional Project-Specific Rules (from user config)\n${rulesSection}`;
+    return `${basePrompt}\n\n## Project Rules\n${rulesSection}`;
   }
 
   protected getFeedbackPrompt(): string {
     if (this.feedback.length === 0) return '';
-    return `\n\n## User Corrections & Preferences (IMPORTANT — follow these strictly)\n${this.feedback.map(f => `- ${f}`).join('\n')}`;
+    return `\n\n## User Preferences (follow strictly)\n${this.feedback.map(f => `- ${f}`).join('\n')}`;
   }
 
   protected getProjectContext(): string {
     const p = this.projectInfo;
-    return `## Project Context (auto-detected)
-- Language: ${p.language}
-- Framework: ${p.framework || 'none detected'}
-- Database: ${p.database.join(', ') || 'none detected'}
-- ORM: ${p.orm || 'none detected'}
-- Test Framework: ${p.testFramework || 'none detected'}
-- Structure: ${p.structure}
-- Monorepo: ${p.monorepo ? 'yes' : 'no'}`;
+    // Compact — every token counts
+    return `## Project: ${p.language}${p.framework ? '/' + p.framework : ''}${p.database.length ? ', DB: ' + p.database.join(',') : ''}${p.orm ? ', ORM: ' + p.orm : ''}`;
   }
 }

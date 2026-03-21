@@ -314,34 +314,10 @@ function showDiff(file: string, diff: string): void {
 // Token savings display (real data from TokenIntelligence)
 // ---------------------------------------------------------------------------
 
-function showTokenSavings(tokenReport: { withoutDevCrew: number; withDevCrew: number; saved: number; percentage: number } | undefined, duration: number): void {
-  console.log(`  ${C.gray}${'─'.repeat(54)}${C.reset}`);
-  console.log(`  ${C.bold}Token Usage${C.reset}                    ${C.gray}${duration.toFixed(1)}s${C.reset}`);
-
-  if (!tokenReport || tokenReport.withDevCrew === 0) {
-    console.log();
-    return;
-  }
-
-  const costPer1k = 0.003;
-  const costWith = (tokenReport.withDevCrew * costPer1k) / 1000;
-
-  console.log();
-  console.log(`  ${C.brightCyan}Tokens used${C.reset}       ${C.bold}~${tokenReport.withDevCrew.toLocaleString()}${C.reset}  ${C.dim}~$${costWith.toFixed(4)}${C.reset}`);
-
-  if (tokenReport.saved > 0 && tokenReport.percentage > 0) {
-    const costWithout = (tokenReport.withoutDevCrew * costPer1k) / 1000;
-    console.log(`  ${C.gray}Manual estimate${C.reset}   ${C.dim}~${tokenReport.withoutDevCrew.toLocaleString()}${C.reset}  ${C.dim}~$${costWithout.toFixed(4)}${C.reset}`);
-    const barLen = 20;
-    const filledLen = Math.round((tokenReport.percentage / 100) * barLen);
-    const bar = `${C.brightGreen}${'█'.repeat(filledLen)}${C.gray}${'░'.repeat(barLen - filledLen)}${C.reset}`;
-    console.log(`  ${C.brightGreen}Saved${C.reset}             ${bar} ${C.bold}${C.brightGreen}${tokenReport.percentage}%${C.reset} ${C.gray}(~${tokenReport.saved.toLocaleString()} tokens)${C.reset}`);
-  } else if (tokenReport.withDevCrew > tokenReport.withoutDevCrew) {
-    // Dev-Crew added tokens for quality (expert prompt, auto-resolved deps, git intel)
-    const added = tokenReport.withDevCrew - tokenReport.withoutDevCrew;
-    console.log(`  ${C.brightCyan}Quality boost${C.reset}     ${C.dim}+${added.toLocaleString()} tokens of expert context${C.reset}`);
-    console.log(`  ${C.dim}  (system prompt, dependency graph, git intelligence)${C.reset}`);
-  }
+function showTokenUsage(tokensUsed: number, duration: number): void {
+  console.log(`  ${C.gray}${'─'.repeat(40)}${C.reset}`);
+  const cost = (tokensUsed * 0.003) / 1000;
+  console.log(`  ${C.dim}~${tokensUsed.toLocaleString()} tokens${C.reset}  ${C.dim}~$${cost.toFixed(4)}${C.reset}  ${C.dim}${duration.toFixed(1)}s${C.reset}`);
   console.log();
 }
 
@@ -362,10 +338,9 @@ function renderStatusBar(opts: {
   const providerPart = `${C.dim}${opts.provider}${C.reset}`;
   const branchPart = opts.gitBranch ? `${C.magenta}${opts.gitBranch}${C.reset}` : '';
   const tokensPart = `${C.dim}${opts.tokensUsed.toLocaleString()} tok${C.reset}`;
-  const savedPart = opts.tokensSaved > 0 ? `${C.brightGreen}${Math.round((opts.tokensSaved / (opts.tokensUsed + opts.tokensSaved)) * 100)}% saved${C.reset}` : '';
   const modePart = opts.mode !== 'normal' ? `${C.bgMagenta}${C.bold}${C.white} ${opts.mode.toUpperCase()} ${C.reset}` : '';
 
-  const parts = [agentPart, providerPart, branchPart, tokensPart, savedPart, modePart].filter(Boolean);
+  const parts = [agentPart, providerPart, branchPart, tokensPart, modePart].filter(Boolean);
   console.log(`  ${C.gray}${parts.join(` ${C.gray}│${C.reset} `)}${C.reset}`);
 }
 
@@ -650,7 +625,7 @@ export async function interactiveCommand(): Promise<void> {
   // --- Session state ---
   let sessionTokensIn = 0;
   let sessionTokensOut = 0;
-  let sessionTokensSaved = 0;
+  // sessionTokensSaved removed — we don't fabricate savings
   let sessionCommands = 0;
   const sessionStartTime = Date.now();
   let lastResult: { raw: string; agent: string; parsed: any } | null = null;
@@ -904,10 +879,6 @@ export async function interactiveCommand(): Promise<void> {
         console.log(`  ${C.gray}  Tokens in${C.reset}        ${C.bold}~${sessionTokensIn.toLocaleString()}${C.reset}`);
         console.log(`  ${C.gray}  Tokens out${C.reset}       ${C.bold}~${sessionTokensOut.toLocaleString()}${C.reset}`);
         console.log(`  ${C.gray}  Total${C.reset}            ${C.bold}~${(sessionTokensIn + sessionTokensOut).toLocaleString()}${C.reset}`);
-        if (sessionTokensSaved > 0) {
-          const pct = Math.round((sessionTokensSaved / (sessionTokensIn + sessionTokensSaved)) * 100);
-          console.log(`  ${C.brightGreen}  Tokens saved${C.reset}     ${C.bold}${C.brightGreen}~${sessionTokensSaved.toLocaleString()} (${pct}%)${C.reset}`);
-        }
         const totalCost = ((sessionTokensIn * 0.003 + sessionTokensOut * 0.015) / 1000);
         console.log(`  ${C.gray}  Est. cost${C.reset}        ${C.bold}~$${totalCost.toFixed(4)}${C.reset}`);
         console.log();
@@ -1165,10 +1136,6 @@ export async function interactiveCommand(): Promise<void> {
         console.log(`  ${C.gray}│${C.reset}  Commands:    ${C.bold}${sessionCommands.toString().padStart(4)}${C.reset}                      ${C.gray}│${C.reset}`);
         console.log(`  ${C.gray}│${C.reset}  Tokens in:   ${C.bold}~${sessionTokensIn.toLocaleString().padStart(8)}${C.reset}               ${C.gray}│${C.reset}`);
         console.log(`  ${C.gray}│${C.reset}  Tokens out:  ${C.bold}~${sessionTokensOut.toLocaleString().padStart(8)}${C.reset}               ${C.gray}│${C.reset}`);
-        if (sessionTokensSaved > 0) {
-          const pct = Math.round((sessionTokensSaved / (sessionTokensIn + sessionTokensSaved)) * 100);
-          console.log(`  ${C.gray}│${C.reset}  ${C.brightGreen}Saved:      ~${sessionTokensSaved.toLocaleString().padStart(8)} (${pct}%)${C.reset}          ${C.gray}│${C.reset}`);
-        }
         console.log(`  ${C.gray}│${C.reset}                                          ${C.gray}│${C.reset}`);
         console.log(`  ${C.gray}│${C.reset}  ${C.dim}Goodbye!${C.reset}                                ${C.gray}│${C.reset}`);
         console.log(`  ${C.gray}╰──────────────────────────────────────────╯${C.reset}`);
@@ -1303,15 +1270,12 @@ export async function interactiveCommand(): Promise<void> {
       // Store last result for /export and fix commands
       lastResult = { raw: result.raw, agent: parsed.agentId, parsed: result.parsed };
 
-      // Token savings from real measurement
+      // Token tracking
       sessionCommands++;
       sessionTokensIn += tokensUsed;
       sessionTokensOut += responseTokens;
-      if (result.tokenReport) {
-        sessionTokensSaved += result.tokenReport.saved;
-      }
 
-      showTokenSavings(result.tokenReport, elapsed);
+      showTokenUsage(tokensUsed + responseTokens, elapsed);
 
       // Status bar
       renderStatusBar({
@@ -1319,7 +1283,7 @@ export async function interactiveCommand(): Promise<void> {
         provider: providerInfo.name,
         gitBranch,
         tokensUsed: sessionTokensIn,
-        tokensSaved: sessionTokensSaved,
+        tokensSaved: 0,
         mode: currentMode,
         commands: sessionCommands,
       });

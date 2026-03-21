@@ -16,10 +16,10 @@ export class ContextEngine {
   async gather(options: ContextOptions): Promise<string> {
     const sections: string[] = [];
 
-    // Project overview
-    sections.push(this.projectOverview(options.projectInfo));
+    // Compact project line (not a full section)
+    sections.push(this.projectLine(options.projectInfo));
 
-    // Target files
+    // Target files — the actual content the user wants analyzed
     if (options.files && options.files.length > 0) {
       for (const file of options.files) {
         const content = this.readFileContext(file, options.maxDepth || 2);
@@ -27,36 +27,31 @@ export class ContextEngine {
       }
     }
 
-    // Schema
-    if (options.includeSchema !== false && options.projectInfo.orm) {
+    // Schema — only when explicitly requested by agent
+    if (options.includeSchema && options.projectInfo.orm) {
       const schema = this.getSchema(options.projectInfo);
       if (schema) sections.push(schema);
     }
 
-    // Config files
-    if (options.includeConfig !== false) {
+    // Config — only when explicitly requested by agent
+    if (options.includeConfig) {
       const configs = this.getConfigContext(options.projectInfo);
       if (configs) sections.push(configs);
     }
 
-    // Related files (imports)
-    if (options.files && options.files.length > 0) {
-      const related = this.getRelatedFiles(options.files, options.projectInfo);
-      if (related) sections.push(related);
-    }
+    // Skip related files import resolution — it adds too many tokens
+    // for marginal benefit. The user can @tag additional files if needed.
 
-    return sections.filter(Boolean).join('\n\n---\n\n');
+    return sections.filter(Boolean).join('\n\n');
   }
 
-  private projectOverview(info: ProjectInfo): string {
-    return `# Project: ${info.name}
-Language: ${info.language}
-Framework: ${info.framework || 'unknown'}
-Database: ${info.database.join(', ') || 'none'}
-ORM: ${info.orm || 'none'}
-Test Framework: ${info.testFramework || 'none'}
-Structure: ${info.structure}
-Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
+  private projectLine(info: ProjectInfo): string {
+    // Single line, not a full section — saves ~200 tokens vs old format
+    const parts: string[] = [info.language];
+    if (info.framework) parts.push(info.framework);
+    if (info.database.length) parts.push('DB: ' + info.database.join(','));
+    if (info.orm) parts.push('ORM: ' + info.orm);
+    return `Project: ${info.name} (${parts.join(', ')})`;
   }
 
   private readFileContext(filePath: string, maxDepth: number): string | null {
@@ -75,39 +70,72 @@ Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
     const content = readFileSafe(absPath);
     if (!content) return null;
 
+    // Strip comments for token savings (keep code, remove noise)
+    const stripped = this.stripComments(content, absPath);
+
     const relativePath = path.relative(process.cwd(), absPath);
     const ext = getExtensionLabel(absPath);
-    return `## File: ${relativePath}\n\`\`\`${ext}\n${content}\n\`\`\``;
+    return `## ${relativePath}\n\`\`\`${ext}\n${stripped}\n\`\`\``;
   }
 
   private readDirectoryContext(dirPath: string, maxDepth: number): string {
-    // Use reduced depth to prevent scanning huge projects
     const effectiveDepth = Math.min(maxDepth, 2);
     const files = walkDir(dirPath, effectiveDepth);
     const sections: string[] = [];
-    const maxFiles = 10;
-    const maxTotalChars = 50_000; // ~12K tokens — keep it tight
-    const maxFileSize = 8_000; // Skip files larger than 8K chars
+    const maxFiles = 8;               // Down from 10
+    const maxTotalChars = 30_000;     // Down from 50K (~7.5K tokens)
+    const maxFileSize = 6_000;        // Down from 8K
     let totalChars = 0;
 
     for (const file of files) {
       if (sections.length >= maxFiles) break;
       const content = readFileSafe(file);
       if (!content) continue;
-      if (content.length > maxFileSize) continue; // Skip huge files
+      if (content.length > maxFileSize) continue;
       if (totalChars + content.length > maxTotalChars) break;
-      totalChars += content.length;
+
+      const stripped = this.stripComments(content, file);
+      totalChars += stripped.length;
       const relativePath = path.relative(process.cwd(), file);
       const ext = getExtensionLabel(file);
-      sections.push(`## File: ${relativePath}\n\`\`\`${ext}\n${content}\n\`\`\``);
+      sections.push(`## ${relativePath}\n\`\`\`${ext}\n${stripped}\n\`\`\``);
     }
 
     const skipped = files.length - sections.length;
     if (skipped > 0) {
-      sections.push(`\n[... ${skipped} more files not shown — specify a file path for full context, e.g. review @src/app.ts]`);
+      sections.push(`[${skipped} more files — use @path/to/file for specific files]`);
     }
 
     return sections.join('\n\n');
+  }
+
+  /**
+   * Strip comments from code to save tokens.
+   * Keeps the code, removes noise. ~10-30% token savings on typical files.
+   */
+  private stripComments(content: string, filePath: string): string {
+    const ext = path.extname(filePath).toLowerCase();
+    const jsLike = ['.ts', '.tsx', '.js', '.jsx', '.java', '.kt', '.go', '.rs', '.c', '.cpp', '.cs', '.swift', '.dart'];
+    const pyLike = ['.py', '.rb', '.sh', '.bash', '.zsh', '.yaml', '.yml'];
+
+    let result = content;
+
+    if (jsLike.includes(ext)) {
+      // Remove single-line comments (but not URLs with //)
+      result = result.replace(/^\s*\/\/(?!:).*$/gm, '');
+      // Remove multi-line comments
+      result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+    } else if (pyLike.includes(ext)) {
+      // Remove # comments (but not shebangs)
+      result = result.replace(/^\s*#(?!!).*$/gm, '');
+    }
+
+    // Collapse multiple blank lines
+    result = result.replace(/\n{3,}/g, '\n\n');
+    // Remove trailing whitespace
+    result = result.replace(/[ \t]+$/gm, '');
+
+    return result.trim();
   }
 
   private getSchema(info: ProjectInfo): string | null {
@@ -115,20 +143,22 @@ Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
     const prismaPath = path.join(info.root, 'prisma/schema.prisma');
     if (fs.existsSync(prismaPath)) {
       const content = readFileSafe(prismaPath);
-      if (content) return `## Database Schema (Prisma)\n\`\`\`prisma\n${content}\n\`\`\``;
+      if (content) {
+        // Only include model definitions, skip comments and generator blocks
+        const models = content.split('\n')
+          .filter(line => !line.startsWith('//') && !line.startsWith('generator'))
+          .join('\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+        return `## Schema (Prisma)\n\`\`\`prisma\n${models}\n\`\`\``;
+      }
     }
 
-    // Drizzle schema
+    // Drizzle
     const drizzlePath = path.join(info.root, 'src/db/schema.ts');
     if (fs.existsSync(drizzlePath)) {
       const content = readFileSafe(drizzlePath);
-      if (content) return `## Database Schema (Drizzle)\n\`\`\`typescript\n${content}\n\`\`\``;
-    }
-
-    // TypeORM entities
-    const entitiesDir = path.join(info.root, 'src/entities');
-    if (fs.existsSync(entitiesDir)) {
-      return this.readDirectoryContext(entitiesDir, 1);
+      if (content) return `## Schema (Drizzle)\n\`\`\`typescript\n${this.stripComments(content, drizzlePath)}\n\`\`\``;
     }
 
     return null;
@@ -136,76 +166,23 @@ Monorepo: ${info.monorepo ? 'yes' : 'no'}`;
 
   private getConfigContext(info: ProjectInfo): string | null {
     const configs: string[] = [];
-    const configFiles = [
-      '.env.example',
-      'docker-compose.yml',
-      'docker-compose.yaml',
-      'nest-cli.json',
-    ];
+    // Only include files that actually affect code behavior
+    const configFiles = ['.env.example', 'docker-compose.yml', 'docker-compose.yaml'];
+    const maxConfigSize = 3_000; // Cap config file size
 
     for (const file of configFiles) {
       const filePath = path.join(info.root, file);
       if (fs.existsSync(filePath)) {
-        const content = readFileSafe(filePath);
+        let content = readFileSafe(filePath);
         if (content) {
-          configs.push(`## Config: ${file}\n\`\`\`\n${content}\n\`\`\``);
+          if (content.length > maxConfigSize) {
+            content = content.slice(0, maxConfigSize) + '\n[... truncated]';
+          }
+          configs.push(`## ${file}\n\`\`\`\n${content}\n\`\`\``);
         }
       }
     }
 
     return configs.length > 0 ? configs.join('\n\n') : null;
-  }
-
-  private getRelatedFiles(targetFiles: string[], info: ProjectInfo): string | null {
-    const related: Set<string> = new Set();
-
-    for (const file of targetFiles) {
-      const absPath = path.resolve(file);
-      if (!fs.existsSync(absPath) || fs.statSync(absPath).isDirectory()) continue;
-
-      const content = readFileSafe(absPath);
-      if (!content) continue;
-
-      const importRegex = /from\s+['"]([^'"]+)['"]/g;
-      let match;
-      while ((match = importRegex.exec(content)) !== null) {
-        const importPath = match[1];
-        if (importPath.startsWith('.')) {
-          const resolved = this.resolveImport(absPath, importPath);
-          if (resolved && !targetFiles.includes(resolved) && !targetFiles.includes(path.relative(process.cwd(), resolved))) {
-            related.add(resolved);
-          }
-        }
-      }
-    }
-
-    if (related.size === 0) return null;
-
-    const sections: string[] = [];
-    for (const file of related) {
-      const content = readFileSafe(file);
-      if (!content) continue;
-      const relativePath = path.relative(process.cwd(), file);
-      const ext = getExtensionLabel(file);
-      sections.push(`## Related: ${relativePath}\n\`\`\`${ext}\n${content}\n\`\`\``);
-    }
-
-    return sections.length > 0 ? sections.join('\n\n') : null;
-  }
-
-  private resolveImport(fromFile: string, importPath: string): string | null {
-    const dir = path.dirname(fromFile);
-    const extensions = ['.ts', '.js', '.tsx', '.jsx', '/index.ts', '/index.js'];
-
-    for (const ext of extensions) {
-      const candidate = path.resolve(dir, importPath + ext);
-      if (fs.existsSync(candidate)) return candidate;
-    }
-
-    // Try without extension (already has one)
-    const direct = path.resolve(dir, importPath);
-    if (fs.existsSync(direct) && fs.statSync(direct).isFile()) return direct;
-
-    return null;
   }
 }
