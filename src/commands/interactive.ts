@@ -297,32 +297,28 @@ function formatGenericResponse(raw: string): void {
 // Token savings display
 // ---------------------------------------------------------------------------
 
-function showTokenSavings(rawPromptLength: number, optimizedTokens: number, responseTokens: number, duration: number): void {
-  const optimizer = new TokenOptimizer();
-  const rawTokens = optimizer.estimate(rawPromptLength.toString().length > 0 ? 'x'.repeat(rawPromptLength) : '');
-  const actualRawTokens = Math.ceil(rawPromptLength / 4);
-
-  // Without dev-crew: user would paste entire files + manually write context
-  // Estimate ~2.5x more tokens without smart context engine
-  const withoutDevCrew = Math.round(actualRawTokens * 2.5);
-  const withDevCrew = optimizedTokens;
-  const saved = Math.max(0, withoutDevCrew - withDevCrew);
-  const savedPct = withoutDevCrew > 0 ? Math.round((saved / withoutDevCrew) * 100) : 0;
-
-  const costWithout = ((withoutDevCrew * 0.003 + responseTokens * 0.015) / 1000);
-  const costWith = ((withDevCrew * 0.003 + responseTokens * 0.015) / 1000);
-
+function showTokenSavings(tokenReport: { withoutDevCrew: number; withDevCrew: number; saved: number; percentage: number } | undefined, duration: number): void {
   console.log(`  ${C.gray}${'─'.repeat(54)}${C.reset}`);
   console.log(`  ${C.bold}Token Usage${C.reset}                    ${C.gray}${duration.toFixed(1)}s${C.reset}`);
-  console.log();
-  console.log(`  ${C.gray}Without Dev-Crew${C.reset}  ${C.dim}~${withoutDevCrew.toLocaleString()} tokens${C.reset}  ${C.dim}~$${costWithout.toFixed(4)}${C.reset}`);
-  console.log(`  ${C.brightGreen}With Dev-Crew${C.reset}     ${C.bold}~${withDevCrew.toLocaleString()} tokens${C.reset}  ${C.bold}~$${costWith.toFixed(4)}${C.reset}`);
 
-  if (savedPct > 0) {
+  if (!tokenReport || tokenReport.withDevCrew === 0) {
+    console.log();
+    return;
+  }
+
+  const costPer1k = 0.003; // input cost estimate
+  const costWithout = (tokenReport.withoutDevCrew * costPer1k) / 1000;
+  const costWith = (tokenReport.withDevCrew * costPer1k) / 1000;
+
+  console.log();
+  console.log(`  ${C.gray}Without Dev-Crew${C.reset}  ${C.dim}~${tokenReport.withoutDevCrew.toLocaleString()} tokens${C.reset}  ${C.dim}~$${costWithout.toFixed(4)}${C.reset}`);
+  console.log(`  ${C.brightGreen}With Dev-Crew${C.reset}     ${C.bold}~${tokenReport.withDevCrew.toLocaleString()} tokens${C.reset}  ${C.bold}~$${costWith.toFixed(4)}${C.reset}`);
+
+  if (tokenReport.percentage > 0) {
     const barLen = 20;
-    const filledLen = Math.round((savedPct / 100) * barLen);
+    const filledLen = Math.round((tokenReport.percentage / 100) * barLen);
     const bar = `${C.brightGreen}${'█'.repeat(filledLen)}${C.gray}${'░'.repeat(barLen - filledLen)}${C.reset}`;
-    console.log(`  ${C.brightGreen}Saved${C.reset}             ${bar} ${C.bold}${C.brightGreen}${savedPct}%${C.reset} ${C.gray}(~${saved.toLocaleString()} tokens)${C.reset}`);
+    console.log(`  ${C.brightGreen}Saved${C.reset}             ${bar} ${C.bold}${C.brightGreen}${tokenReport.percentage}%${C.reset} ${C.gray}(~${tokenReport.saved.toLocaleString()} tokens)${C.reset}`);
   }
   console.log();
 }
@@ -788,7 +784,6 @@ export async function interactiveCommand(): Promise<void> {
     // Thinking animation with step updates
     thinking.start('Gathering context');
     const startTime = Date.now();
-    let promptLength = 0;
 
     try {
       const timeoutMs = 120_000; // 2 min timeout
@@ -798,11 +793,6 @@ export async function interactiveCommand(): Promise<void> {
           files: allFiles.length > 0 ? allFiles : undefined,
           onProgress: (step: string) => {
             thinking.update(step);
-            // Capture prompt size from step text
-            const tokenMatch = step.match(/~([\d,]+) tokens/);
-            if (tokenMatch) {
-              promptLength = parseInt(tokenMatch[1].replace(/,/g, ''), 10) * 4;
-            }
           },
         }),
         new Promise<never>((_, reject) =>
@@ -820,14 +810,15 @@ export async function interactiveCommand(): Promise<void> {
       // Format the response
       formatGenericResponse(result.raw);
 
-      // Token savings comparison
+      // Token savings from real measurement
       sessionCommands++;
       sessionTokensIn += tokensUsed;
       sessionTokensOut += responseTokens;
-      const estimatedRawTokens = Math.round(tokensUsed * 2.5);
-      sessionTokensSaved += Math.max(0, estimatedRawTokens - tokensUsed);
+      if (result.tokenReport) {
+        sessionTokensSaved += result.tokenReport.saved;
+      }
 
-      showTokenSavings(promptLength || tokensUsed * 4, tokensUsed, responseTokens, elapsed);
+      showTokenSavings(result.tokenReport, elapsed);
 
     } catch (err) {
       const elapsed = (Date.now() - startTime) / 1000;

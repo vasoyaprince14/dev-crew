@@ -235,6 +235,8 @@ program
   .command('fix <file>')
   .description('Suggest and apply code fixes')
   .option('-i, --issue <description>', 'Specific issue to fix')
+  .option('--auto-apply', 'Automatically apply fixes without confirmation')
+  .option('--dry-run', 'Show diff but do not apply changes')
   .action(fixCommand);
 
 program

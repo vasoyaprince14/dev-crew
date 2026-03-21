@@ -27,6 +27,12 @@ export interface AgentResult {
   tokensUsed?: number;
   duration: number;
   agent: string;
+  tokenReport?: {
+    withoutDevCrew: number;
+    withDevCrew: number;
+    saved: number;
+    percentage: number;
+  };
 }
 
 export interface ParsedResponse {
@@ -55,6 +61,7 @@ export interface Fix {
   file: string;
   description: string;
   diff: string;
+  newContent?: string;
 }
 
 export interface FileDiff {

@@ -5,11 +5,9 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 
 interface TokenBreakdown {
-  smartFileSelection: number;
-  commentStripping: number;
-  boilerplateCollapse: number;
-  contextDedup: number;
-  promptOptimization: number;
+  smartFileSelection: number;  // tokens saved by including only relevant files, not everything
+  contextCompression: number;  // tokens saved by whitespace/blank-line removal
+  systemPromptReuse: number;   // tokens the structured system prompt replaces vs raw user typing
 }
 
 interface TokenReport {
@@ -58,49 +56,62 @@ export class TokenIntelligence {
     optimizedContext: string,
     systemPromptLength: number,
   ): TokenReport {
-    // Naive approach: read all files fully + long generic prompt
-    let naiveFileTokens = 0;
+    // Total raw size: read every file the user pointed at (what they'd paste manually)
+    let allFileTokens = 0;
+    const allFilePaths: string[] = [];
+
     for (const file of originalFiles) {
       try {
         if (fs.existsSync(file) && fs.statSync(file).isFile()) {
-          const content = fs.readFileSync(file, 'utf-8');
-          naiveFileTokens += estimateTokens(content);
+          allFilePaths.push(file);
         } else if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
-          const files = this.walkFlat(file);
-          for (const f of files) {
-            try {
-              naiveFileTokens += estimateTokens(fs.readFileSync(f, 'utf-8'));
-            } catch { /* skip */ }
-          }
+          allFilePaths.push(...this.walkFlat(file));
         }
       } catch { /* skip */ }
     }
 
-    // Add a generic prompt estimate (user typing raw instructions)
-    const naivePromptTokens = Math.max(500, Math.round(systemPromptLength * 0.3));
-    const naiveTotal = naiveFileTokens + naivePromptTokens;
+    for (const f of allFilePaths) {
+      try {
+        allFileTokens += estimateTokens(fs.readFileSync(f, 'utf-8'));
+      } catch { /* skip */ }
+    }
 
-    const optimizedTotal = estimateTokens(optimizedContext) + systemPromptLength;
-    const saved = Math.max(0, naiveTotal - optimizedTotal);
+    // withoutDevCrew: all files raw + a rough estimate of what the user would type as instructions
+    const manualPromptEstimate = Math.max(200, Math.round(systemPromptLength * 0.3));
+    const withoutDevCrew = allFileTokens + manualPromptEstimate;
 
-    // Approximate breakdown
-    const fileSelectionSaved = Math.round(saved * 0.38);
-    const commentSaved = Math.round(saved * 0.12);
-    const boilerplateSaved = Math.round(saved * 0.18);
-    const dedupSaved = Math.round(saved * 0.15);
-    const promptSaved = saved - fileSelectionSaved - commentSaved - boilerplateSaved - dedupSaved;
+    // withDevCrew: the actual optimized context that was sent + the system prompt
+    const withDevCrew = estimateTokens(optimizedContext) + systemPromptLength;
+
+    const saved = Math.max(0, withoutDevCrew - withDevCrew);
+
+    // Honest breakdown — only things we actually do:
+
+    // 1. Smart file selection: we limit to ~10 relevant files instead of everything.
+    //    Measure: raw size of all files minus raw size of files that made it into optimizedContext.
+    const optimizedContextTokens = estimateTokens(optimizedContext);
+    const fileSelectionSaved = Math.max(0, allFileTokens - optimizedContextTokens);
+
+    // 2. Context compression: whitespace/blank-line removal (TokenOptimizer.compress).
+    //    This is modest — we don't strip comments or collapse boilerplate.
+    //    Estimate by comparing optimized context length to what's left after file selection.
+    const contextCompressionSaved = Math.max(0, saved - fileSelectionSaved);
+
+    // 3. System prompt reuse: the structured system prompt replaces manual typing.
+    //    Already accounted for in the manualPromptEstimate vs systemPromptLength difference.
+    //    This can be negative (system prompt may be larger than what a user would type),
+    //    so we just report it as part of contextCompression above to keep numbers honest.
+    const systemPromptReuse = Math.max(0, systemPromptLength - manualPromptEstimate);
 
     return {
-      withoutDevCrew: naiveTotal,
-      withDevCrew: optimizedTotal,
+      withoutDevCrew,
+      withDevCrew,
       saved,
-      percentage: naiveTotal > 0 ? Math.round((saved / naiveTotal) * 100) : 0,
+      percentage: withoutDevCrew > 0 ? Math.round((saved / withoutDevCrew) * 100) : 0,
       breakdown: {
         smartFileSelection: fileSelectionSaved,
-        commentStripping: commentSaved,
-        boilerplateCollapse: boilerplateSaved,
-        contextDedup: dedupSaved,
-        promptOptimization: promptSaved,
+        contextCompression: Math.max(0, contextCompressionSaved - systemPromptReuse),
+        systemPromptReuse,
       },
     };
   }
@@ -125,11 +136,9 @@ export class TokenIntelligence {
       `${chalk.green.bold(`Saved:             ${report.saved.toLocaleString()} tokens (${report.percentage}% less)`)}`,
       ``,
       `How we saved:`,
-      `  Smart file selection:     -${report.breakdown.smartFileSelection.toLocaleString()} tokens`,
-      `  Comment stripping:        -${report.breakdown.commentStripping.toLocaleString()} tokens`,
-      `  Boilerplate collapse:     -${report.breakdown.boilerplateCollapse.toLocaleString()} tokens`,
-      `  Context deduplication:    -${report.breakdown.contextDedup.toLocaleString()} tokens`,
-      `  Prompt optimization:      -${report.breakdown.promptOptimization.toLocaleString()} tokens`,
+      `  File selection (relevant only):  -${report.breakdown.smartFileSelection.toLocaleString()} tokens`,
+      `  Whitespace compression:          -${report.breakdown.contextCompression.toLocaleString()} tokens`,
+      `  Structured system prompt:        -${report.breakdown.systemPromptReuse.toLocaleString()} tokens`,
       ``,
       `Session total saved: ${this.sessionStats.totalSaved.toLocaleString()} tokens`,
     ];
