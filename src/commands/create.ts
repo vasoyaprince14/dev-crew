@@ -156,6 +156,10 @@ export async function createCommand(description: string, options: CreateOptions)
   console.log();
   console.log(`  ${chalk.bold('Location:')} ${outputDir}`);
   console.log(`  ${chalk.bold('Files:')}    ${writeResult.written.length} generated`);
+  console.log(`  ${chalk.bold('Build:')}    ${result.validationPassed ? chalk.green('CLEAN') : chalk.yellow('Needs review')}`);
+  if (result.fixIterations > 0) {
+    console.log(`  ${chalk.bold('Fixes:')}    ${result.fixIterations} auto-fix iteration(s)`);
+  }
   console.log(`  ${chalk.bold('Tokens:')}   ~${result.totalTokens.toLocaleString()}`);
   console.log(`  ${chalk.bold('Time:')}     ${(result.totalDuration / 1000).toFixed(1)}s`);
 

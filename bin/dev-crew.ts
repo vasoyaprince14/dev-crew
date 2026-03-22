@@ -74,6 +74,7 @@ import { deployCommand } from '../src/commands/deploy.js';
 import { interactiveCommand } from '../src/commands/interactive.js';
 import { makeAgentCommand } from '../src/commands/agent-command.js';
 import { showcaseCommand } from '../src/commands/showcase.js';
+import { iterateCommand } from '../src/commands/iterate.js';
 
 // ---------------------------------------------------------------------------
 // ANSI helpers
@@ -138,7 +139,7 @@ function showBrandedHelp() {
   // ── DevOps & Infrastructure ──
   printSection(magenta('DevOps & Infrastructure'), [
     ['devops [question]', 'Docker, CI/CD, Terraform, K8s'],
-    ['deploy [question]', 'Deployment strategy'],
+    ['deploy [platform]', 'Deploy to Vercel/Netlify/Railway'],
     ['cost-optimizer [question]', 'Cloud cost analysis'],
     ['monitoring [question]', 'Observability and alerting'],
   ]);
@@ -146,6 +147,7 @@ function showBrandedHelp() {
   // ── Full-Stack & Database ──
   printSection(blue('Full-Stack & Database'), [
     ['create <description>', 'Build a complete app from a prompt'],
+    ['iterate <description>', 'Modify existing app with natural language'],
     ['scaffold <description>', 'Scaffold a new project'],
     ['build <description>', 'Build a feature into your project'],
     ['db-architect [input]', 'Schema design & query optimization'],
@@ -451,8 +453,10 @@ program
   .action(costOptimizerCommand);
 
 program
-  .command('deploy [question]')
-  .description('Get a complete deployment strategy for your project')
+  .command('deploy [platform]')
+  .description('Deploy your project — auto-detects Vercel, Netlify, or Railway')
+  .option('-p, --platform <name>', 'Force platform: vercel, netlify, railway')
+  .option('--no-prod', 'Deploy to preview/staging instead of production')
   .action(deployCommand);
 
 program
@@ -469,6 +473,12 @@ program
   .option('-y, --yes', 'Skip confirmations between pipeline stages')
   .option('--no-install', 'Skip automatic npm install after generation')
   .action(createCommand);
+
+program
+  .command('iterate <description>')
+  .description('Modify an existing project with natural language — minimal surgical changes')
+  .option('-d, --dir <path>', 'Project directory (default: current)')
+  .action(iterateCommand);
 
 // ===== V2: FULL-STACK BUILDER =====
 program

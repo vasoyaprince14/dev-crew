@@ -2,6 +2,51 @@
 
 All notable changes to Dev-Crew are documented here.
 
+## [5.1.0] - 2026-03-22
+
+### Added — "Iterate & Deploy"
+- **`dev-crew iterate "add dark mode"`** — Modify existing projects with natural language
+  - Reads project files, builds token-efficient summary
+  - AI plans minimal changes (which files to modify/create)
+  - Shows plan, gets approval, generates only changed files
+  - Displays file-level diff summary before applying
+  - Runs build validation after applying changes
+  - Smart file selection: only sends relevant files to AI based on change context
+- **`dev-crew deploy` rewritten** — Real deployment, not just advice
+  - Auto-detects framework → recommends platform (Vercel/Netlify/Railway)
+  - Checks if platform CLI is installed, offers to install
+  - Pre-deploy checks: package.json, build script, build test
+  - Runs actual deployment CLI with inherited stdio
+  - Falls back to AI deployment advisor for complex questions
+  - `dev-crew deploy vercel` / `dev-crew deploy railway` / `dev-crew deploy netlify`
+
+## [5.0.0] - 2026-03-22
+
+### Changed — "Self-Healing Pipeline"
+- **Complete pipeline rewrite** — Generate → Validate → Fix → Repeat
+  - Sandbox validation: runs `npm install` + `tsc --noEmit` against generated code
+  - Auto-fix loop: errors are fed back to AI, fixed automatically (up to 5 iterations)
+  - Trust layer: real build status display (`PASS`/`FAIL` per check, not just spinners)
+  - Final confidence: shows `Build: CLEAN` or `Build: Needs review`
+- **New output format** — `===FILE===` delimiters replace fragile JSON parsing
+  - Deterministic parsing (no regex guessing)
+  - Fallback chain: `===FILE===` → JSON → code blocks (backward compatible)
+- **Prompt Engine** — master system prompt enforced across all pipeline agents
+  - Strict rules: no placeholders, no hallucinated packages, complete code only
+  - Structured output contract: machines parse the output, format must be exact
+- **Pipeline reduced from 7 stages to 4** — Plan → Build → Validate & Fix → Enhance
+  - Fewer API calls = faster + cheaper
+  - Self-healing loop adds reliability without adding stages
+- **Removed 4 empty stub agents** (analytics-agent, cmo, coo, cro)
+
+### Added
+- `src/core/prompt-engine.ts` — Master prompt system with output format contract
+- `src/core/output-parser.ts` — Deterministic ===FILE=== parser with fallback chain
+- `src/core/sandbox.ts` — Isolated validation (npm install, tsc, structure checks)
+
+### Fixed
+- Confirm prompt "Cancelled" bug (v4.0.2 — raw stdin instead of readline)
+
 ## [4.0.0] - 2026-03-21
 
 ### Added — "Startup in a CLI"

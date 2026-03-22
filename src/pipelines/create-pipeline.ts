@@ -1,10 +1,26 @@
+/**
+ * Create Pipeline v2 — Self-Healing App Builder
+ *
+ * 4 stages + fix loop:
+ *   1. Plan     — Architecture + requirements (single AI call)
+ *   2. Build    — Generate all files (===FILE=== format)
+ *   3. Validate — Sandbox: npm install + tsc + structure checks
+ *   4. Fix Loop — Send errors to AI, get fixes, re-validate (max 5)
+ *   5. Enhance  — Tests + DevOps files (optional)
+ *
+ * Trust Layer: Shows real build status, not just spinners.
+ */
+
 import chalk from 'chalk';
 import { AgentRegistry } from '../agents/registry.js';
 import { ConfigManager } from '../core/config-manager.js';
-import { ActionLayer } from '../core/action-layer.js';
 import { Spinner } from '../utils/spinner.js';
+import { Sandbox } from '../core/sandbox.js';
+import { parseOutput, formatFilesForPrompt } from '../core/output-parser.js';
+import { buildPlanPrompt, buildGeneratePrompt, buildFixPrompt, buildEnhancePrompt } from '../core/prompt-engine.js';
 import type { GeneratedFile } from '../core/file-writer.js';
 import type { ProjectInfo } from '../types/config.js';
+import type { ValidationCheck } from '../core/sandbox.js';
 
 export interface CreateSpec {
   description: string;
@@ -14,15 +30,6 @@ export interface CreateSpec {
   answers: Record<string, string>;
 }
 
-interface PipelineStage {
-  name: string;
-  agent: string;
-  icon: string;
-  description: string;
-  maxTokens: number;
-  buildQuery: (spec: CreateSpec, prev: Map<string, string>) => string;
-}
-
 export interface PipelineResult {
   files: GeneratedFile[];
   setupSteps: string[];
@@ -30,13 +37,17 @@ export interface PipelineResult {
   totalTokens: number;
   totalDuration: number;
   stagesCompleted: number;
+  validationPassed: boolean;
+  fixIterations: number;
 }
+
+const MAX_FIX_ITERATIONS = 5;
+const ICON = { plan: '\u{1F9E0}', build: '\u{1F680}', validate: '\u{1F50D}', fix: '\u{1F527}', enhance: '\u{2699}', pass: '\u{2714}', fail: '\u{2716}', skip: '\u{23ED}' };
 
 export class CreatePipeline {
   private registry: AgentRegistry;
   private configManager: ConfigManager;
   private projectInfo: ProjectInfo;
-  private actionLayer: ActionLayer;
   private spinner: Spinner;
   private skipConfirm: boolean;
 
@@ -44,375 +55,305 @@ export class CreatePipeline {
     this.registry = new AgentRegistry();
     this.configManager = new ConfigManager();
     this.projectInfo = projectInfo;
-    this.actionLayer = new ActionLayer();
     this.spinner = new Spinner();
     this.skipConfirm = skipConfirm;
   }
 
   async run(spec: CreateSpec): Promise<PipelineResult> {
-    const stages = this.getStages();
-    const stageResults = new Map<string, string>();
-    const allFiles: GeneratedFile[] = [];
-    let setupSteps: string[] = [];
-    let projectName = 'my-app';
     let totalTokens = 0;
     let totalDuration = 0;
     let stagesCompleted = 0;
+    let fixIterations = 0;
+    let validationPassed = false;
 
     console.log();
-    console.log(chalk.bold.cyan('  Build Pipeline'));
+    console.log(chalk.bold.cyan('  Build Pipeline v2'));
     console.log(chalk.cyan('  ' + '='.repeat(50)));
 
-    for (let i = 0; i < stages.length; i++) {
-      const stage = stages[i];
+    // ─── Stage 1: PLAN ─────────────────────────────────────
+    console.log();
+    this.stageHeader(1, 4, ICON.plan, 'Plan', 'Designing architecture and requirements');
 
-      console.log();
-      console.log(chalk.bold(`  ${stage.icon} Step ${i + 1}/${stages.length}: ${stage.name}`));
-      console.log(chalk.dim(`  ${stage.description}`));
+    const planAgent = this.createAgent('ba', 8192);
+    if (!planAgent) {
+      return this.emptyResult('Plan agent not available');
+    }
 
-      const agent = this.registry.create(
-        stage.agent,
-        this.projectInfo,
-        { maxTokens: stage.maxTokens },
-        this.configManager.getFeedback(stage.agent),
-      );
+    this.spinner.start('  Designing architecture...');
+    let plan = '';
+    try {
+      const planPrompt = buildPlanPrompt(spec.description, spec.answers, spec.techStack);
+      const planResult = await planAgent.execute({ query: planPrompt, streaming: false });
+      plan = planResult.raw;
+      totalTokens += planResult.tokensUsed || 0;
+      totalDuration += planResult.duration;
+      stagesCompleted++;
+      this.spinner.stop();
+      console.log(chalk.green(`  ${ICON.pass} Plan complete — ${this.fmtTime(planResult.duration)}`));
+    } catch (err) {
+      this.spinner.stop();
+      console.log(chalk.red(`  ${ICON.fail} Plan failed: ${this.errMsg(err)}`));
+      return this.emptyResult('Plan stage failed');
+    }
 
-      if (!agent) {
-        console.log(chalk.yellow(`  Skipping — ${stage.agent} agent not available`));
-        stageResults.set(stage.name, '');
-        continue;
-      }
+    // ─── Stage 2: BUILD ─────────────────────────────────────
+    console.log();
+    this.stageHeader(2, 4, ICON.build, 'Build', 'Generating complete application');
 
-      this.spinner.start(`  Working on ${stage.name.toLowerCase()}...`);
+    const buildAgent = this.createAgent('app-creator', 16384);
+    if (!buildAgent) {
+      return this.emptyResult('Build agent not available');
+    }
+
+    this.spinner.start('  Generating code...');
+    let files: GeneratedFile[] = [];
+    let projectName = 'my-app';
+
+    try {
+      const genPrompt = buildGeneratePrompt(spec.description, plan, spec.techStack);
+      const genResult = await buildAgent.execute({ query: genPrompt, streaming: false });
+      const parsed = parseOutput(genResult.raw);
+      files = parsed.files;
+      projectName = parsed.projectName;
+      totalTokens += genResult.tokensUsed || 0;
+      totalDuration += genResult.duration;
+      stagesCompleted++;
+      this.spinner.stop();
+      console.log(chalk.green(`  ${ICON.pass} Generated ${files.length} files — ${this.fmtTime(genResult.duration)}`));
+    } catch (err) {
+      this.spinner.stop();
+      console.log(chalk.red(`  ${ICON.fail} Build failed: ${this.errMsg(err)}`));
+      return this.emptyResult('Build stage failed');
+    }
+
+    if (files.length === 0) {
+      console.log(chalk.red(`  ${ICON.fail} No files generated — AI response could not be parsed`));
+      return this.emptyResult('No files generated');
+    }
+
+    // ─── Stage 3: VALIDATE & FIX LOOP ──────────────────────
+    console.log();
+    this.stageHeader(3, 4, ICON.validate, 'Validate & Fix', 'Checking build, fixing errors');
+
+    for (let iteration = 0; iteration <= MAX_FIX_ITERATIONS; iteration++) {
+      const sandbox = new Sandbox();
 
       try {
-        const query = stage.buildQuery(spec, stageResults);
-        const result = await agent.execute({
-          query,
-          streaming: false,
-        });
+        sandbox.writeFiles(files);
 
-        this.spinner.stop();
-        stagesCompleted++;
-        totalTokens += result.tokensUsed || 0;
-        totalDuration += result.duration;
-        stageResults.set(stage.name, result.raw);
-
-        // Extract files from scaffolding stages
-        if (stage.agent === 'app-creator' || stage.agent === 'fullstack-builder') {
-          const parsed = this.extractJSON(result.raw);
-          if (parsed) {
-            if (parsed.project_name) projectName = String(parsed.project_name);
-            if (Array.isArray(parsed.files)) {
-              const files = parsed.files as Array<{ path: string; content: string; description?: string }>;
-              for (const f of files) {
-                if (f.path && f.content) {
-                  allFiles.push({ path: f.path, content: f.content, description: f.description });
-                }
-              }
-            }
-            if (Array.isArray(parsed.setup_steps)) {
-              setupSteps = parsed.setup_steps as string[];
-            }
-          }
+        if (iteration === 0) {
+          this.spinner.start('  Running validation...');
         } else {
-          // Extract code blocks from non-JSON responses (test, devops, etc.)
-          const extracted = this.extractFilesFromCodeBlocks(result.raw);
-          allFiles.push(...extracted);
+          this.spinner.start(`  Re-validating (attempt ${iteration + 1}/${MAX_FIX_ITERATIONS + 1})...`);
         }
 
-        // Show brief summary
-        const fileCount = stage.agent === 'app-creator' ? ` (${allFiles.length} files)` : '';
-        console.log(chalk.green(`  Done${fileCount} — ${(result.duration / 1000).toFixed(1)}s`));
+        const result = sandbox.validate();
+        this.spinner.stop();
 
-        // Ask to continue (except last step)
-        if (i < stages.length - 1 && !this.skipConfirm) {
-          const proceed = await this.actionLayer.confirm('\n  Continue to next step?');
-          if (!proceed) {
-            console.log(chalk.yellow('  Pipeline stopped by user.'));
+        // Display check results
+        this.displayChecks(result.checks);
+
+        if (result.success) {
+          validationPassed = true;
+          console.log();
+          console.log(chalk.green.bold(`  ${ICON.pass} Build: CLEAN`));
+          stagesCompleted++;
+          break;
+        }
+
+        // Validation failed — can we fix it?
+        if (iteration >= MAX_FIX_ITERATIONS) {
+          console.log();
+          console.log(chalk.yellow(`  ${ICON.fail} Build has errors after ${MAX_FIX_ITERATIONS} fix attempts`));
+          console.log(chalk.dim('  Files will be written — manual fixes may be needed'));
+          stagesCompleted++;
+          break;
+        }
+
+        // ─── FIX: Send errors to AI ──────────────
+        fixIterations++;
+        console.log();
+        console.log(chalk.yellow(`  ${ICON.fix} Fixing ${result.errors.length} error(s) — attempt ${fixIterations}/${MAX_FIX_ITERATIONS}`));
+
+        const fixAgent = this.createAgent('app-creator', 16384);
+        if (!fixAgent) {
+          console.log(chalk.yellow('  Fix agent not available — skipping'));
+          break;
+        }
+
+        this.spinner.start('  AI is fixing errors...');
+
+        try {
+          const errorsText = result.errors.join('\n\n---\n\n');
+          const filesText = formatFilesForPrompt(files);
+          const fixPrompt = buildFixPrompt(errorsText, filesText);
+          const fixResult = await fixAgent.execute({ query: fixPrompt, streaming: false });
+          const fixedOutput = parseOutput(fixResult.raw);
+          totalTokens += fixResult.tokensUsed || 0;
+          totalDuration += fixResult.duration;
+
+          this.spinner.stop();
+
+          if (fixedOutput.files.length > 0) {
+            // Merge fixed files into existing files
+            files = this.mergeFiles(files, fixedOutput.files);
+            console.log(chalk.dim(`  Updated ${fixedOutput.files.length} file(s) — ${this.fmtTime(fixResult.duration)}`));
+          } else {
+            console.log(chalk.yellow('  AI returned no file changes — stopping fix loop'));
             break;
           }
+        } catch (err) {
+          this.spinner.stop();
+          console.log(chalk.red(`  Fix failed: ${this.errMsg(err)}`));
+          break;
         }
-      } catch (err) {
-        this.spinner.fail(`${stage.name} failed`);
-        const msg = err instanceof Error ? err.message : String(err);
-        console.log(chalk.red(`  Error: ${msg}`));
-        stageResults.set(stage.name, '');
-
-        if (i < stages.length - 1) {
-          const continueAnyway = await this.actionLayer.confirm('  Continue with next step?');
-          if (!continueAnyway) break;
-        }
+      } finally {
+        sandbox.cleanup();
       }
     }
 
-    // Deduplicate files — later stages override earlier ones
-    const deduped = this.deduplicateFiles(allFiles);
+    // ─── Stage 4: ENHANCE (Tests + DevOps) ──────────────────
+    console.log();
+    this.stageHeader(4, 4, ICON.enhance, 'Enhance', 'Adding tests and DevOps config');
+
+    const fileNames = files.map(f => f.path);
+    const enhanceTypes: Array<'tests' | 'devops'> = ['tests', 'devops'];
+
+    for (const type of enhanceTypes) {
+      const agentName = type === 'tests' ? 'test' : 'devops';
+      const agent = this.createAgent(agentName, 8192);
+      if (!agent) continue;
+
+      const label = type === 'tests' ? 'Test suite' : 'DevOps config';
+      this.spinner.start(`  Generating ${label.toLowerCase()}...`);
+
+      try {
+        const prompt = buildEnhancePrompt(spec.description, plan, fileNames, type);
+        const result = await agent.execute({ query: prompt, streaming: false });
+        const enhancedFiles = parseOutput(result.raw);
+        totalTokens += result.tokensUsed || 0;
+        totalDuration += result.duration;
+
+        if (enhancedFiles.files.length > 0) {
+          files = this.mergeFiles(files, enhancedFiles.files);
+          this.spinner.stop();
+          console.log(chalk.green(`  ${ICON.pass} ${label}: ${enhancedFiles.files.length} files — ${this.fmtTime(result.duration)}`));
+        } else {
+          this.spinner.stop();
+          console.log(chalk.dim(`  ${ICON.skip} ${label}: no additional files`));
+        }
+      } catch {
+        this.spinner.stop();
+        console.log(chalk.dim(`  ${ICON.skip} ${label}: skipped (non-critical)`));
+      }
+    }
+
+    stagesCompleted++;
+
+    // ─── FINAL STATUS ──────────────────────────────────────
+    console.log();
+    console.log(chalk.cyan('  ' + '-'.repeat(50)));
+    console.log(chalk.bold(`  Status:  ${validationPassed ? chalk.green('READY') : chalk.yellow('NEEDS REVIEW')}`));
+    console.log(chalk.bold(`  Files:   ${files.length} generated`));
+    console.log(chalk.bold(`  Build:   ${validationPassed ? chalk.green('CLEAN (0 errors)') : chalk.yellow('Has warnings')}`));
+    if (fixIterations > 0) {
+      console.log(chalk.bold(`  Fixes:   ${fixIterations} auto-fix iteration(s)`));
+    }
+    console.log(chalk.cyan('  ' + '-'.repeat(50)));
 
     return {
-      files: deduped,
-      setupSteps,
+      files: this.deduplicateFiles(files),
+      setupSteps: this.extractSetupSteps(plan),
       projectName,
       totalTokens,
       totalDuration,
       stagesCompleted,
+      validationPassed,
+      fixIterations,
     };
   }
 
-  private getStages(): PipelineStage[] {
-    return [
-      {
-        name: 'Solution Design',
-        agent: 'solution-architect',
-        icon: '\u{1F9E0}',
-        description: 'Recommending optimal tech stack for your requirements',
-        maxTokens: 8192,
-        buildQuery: (spec) => {
-          return `Recommend the best tech stack for this application:
+  // ─── Helpers ──────────────────────────────────────────────
 
-"${spec.description}"
-
-User preferences:
-${Object.entries(spec.answers).map(([k, v]) => `- ${v}`).join('\n')}
-${spec.techStack !== 'Node.js + React + PostgreSQL' ? `\nUser prefers: ${spec.techStack}` : ''}
-
-Consider: scalability, developer speed, community support, cost, and the specific requirements above. Recommend frontend, backend, database, auth, payments, hosting, and any other relevant services.`;
-        },
-      },
-      {
-        name: 'Requirements',
-        agent: 'ba',
-        icon: '\u{1F4CB}',
-        description: 'Analyzing requirements and creating specs',
-        maxTokens: 8192,
-        buildQuery: (spec, prev) => {
-          const solutionDesign = prev.get('Solution Design') || '';
-          return `Create a complete product requirements document for this application:
-
-"${spec.description}"
-
-User Requirements:
-${Object.entries(spec.answers).map(([k, v]) => `- ${v}`).join('\n')}
-
-Tech Stack: ${spec.techStack}
-${solutionDesign ? `\nSolution Architecture:\n${this.truncate(solutionDesign, 2000)}` : ''}
-
-Provide:
-1. Core user stories (who, what, why)
-2. Data model (entities, relationships, key fields)
-3. API endpoints needed (method, path, purpose)
-4. Authentication/authorization requirements
-5. Third-party integrations needed
-6. MVP scope vs future features
-
-Be specific and actionable — this feeds directly into code generation.`;
-        },
-      },
-      {
-        name: 'Architecture',
-        agent: 'tech-lead',
-        icon: '\u{1F3D7}',
-        description: 'Designing system architecture',
-        maxTokens: 8192,
-        buildQuery: (spec, prev) => {
-          const requirements = prev.get('Requirements') || 'N/A';
-          return `Design the complete technical architecture for this application:
-
-"${spec.description}"
-
-Tech Stack: ${spec.techStack}
-
-Requirements:
-${this.truncate(requirements, 4000)}
-
-Provide:
-1. Project folder structure (feature-based)
-2. Database schema design (tables, relationships, indexes)
-3. API route structure
-4. Authentication flow
-5. Key architectural decisions and patterns
-6. Component hierarchy (if frontend)
-
-Be specific — include actual table names, route paths, component names.`;
-        },
-      },
-      {
-        name: 'Code Generation',
-        agent: 'app-creator',
-        icon: '\u{1F680}',
-        description: 'Generating complete application code',
-        maxTokens: 16384,
-        buildQuery: (spec, prev) => {
-          const requirements = prev.get('Requirements') || '';
-          const architecture = prev.get('Architecture') || '';
-          return `Generate the COMPLETE application with ALL file contents. Every file must be production-ready and runnable.
-
-Application: "${spec.description}"
-Tech Stack: ${spec.techStack}
-Features: ${spec.features.slice(0, 10).join(', ')}
-
-Requirements Summary:
-${this.truncate(requirements, 3000)}
-
-Architecture:
-${this.truncate(architecture, 3000)}
-
-CRITICAL: Write EVERY line of code. No abbreviations. No "// ... rest of code". Include:
-- All backend routes with full implementation
-- Database schema/migrations/seeds
-- Frontend pages with full UI code
-- Authentication system
-- Input validation and error handling
-- package.json with all dependencies
-- Environment config (.env.example)
-- Docker setup (Dockerfile + docker-compose.yml)
-- README with setup instructions`;
-        },
-      },
-      {
-        name: 'Database & API',
-        agent: 'db-architect',
-        icon: '\u{1F5C3}',
-        description: 'Refining database schema and API design',
-        maxTokens: 8192,
-        buildQuery: (spec, prev) => {
-          const architecture = prev.get('Architecture') || '';
-          return `Review and enhance the database design for this application:
-
-"${spec.description}"
-Tech Stack: ${spec.techStack}
-
-Architecture:
-${this.truncate(architecture, 3000)}
-
-Generate any missing database files:
-1. Complete migration files (if not already generated)
-2. Seed data with realistic sample data
-3. Database utility/helper functions
-4. Index optimization suggestions
-
-For each file, use this format:
-\`\`\`sql
-// filepath: path/to/file.sql
-[complete file content]
-\`\`\`
-
-Or for TypeScript/JavaScript:
-\`\`\`typescript
-// filepath: path/to/file.ts
-[complete file content]
-\`\`\``;
-        },
-      },
-      {
-        name: 'Tests',
-        agent: 'test',
-        icon: '\u{1F9EA}',
-        description: 'Generating test suite',
-        maxTokens: 8192,
-        buildQuery: (spec, prev) => {
-          const architecture = prev.get('Architecture') || '';
-          return `Generate a comprehensive test suite for this application:
-
-"${spec.description}"
-Tech Stack: ${spec.techStack}
-
-Architecture:
-${this.truncate(architecture, 2000)}
-
-Generate:
-1. Unit tests for key business logic
-2. API integration tests for main endpoints
-3. Test utilities and fixtures
-
-For each test file, use this format:
-\`\`\`typescript
-// filepath: tests/path/to/test.test.ts
-[complete test file content]
-\`\`\`
-
-Include proper setup/teardown, realistic test data, and both happy path and error cases.`;
-        },
-      },
-      {
-        name: 'DevOps',
-        agent: 'devops',
-        icon: '\u{2699}',
-        description: 'Setting up deployment and CI/CD',
-        maxTokens: 8192,
-        buildQuery: (spec, prev) => {
-          const architecture = prev.get('Architecture') || '';
-          return `Generate complete deployment configuration for this application:
-
-"${spec.description}"
-Tech Stack: ${spec.techStack}
-
-Architecture:
-${this.truncate(architecture, 2000)}
-
-Generate these files (only if not already created in previous steps):
-1. Dockerfile (multi-stage, production-optimized)
-2. docker-compose.yml (app + database + redis if needed)
-3. .github/workflows/ci.yml (build, test, lint)
-4. .github/workflows/deploy.yml (deployment pipeline)
-5. nginx.conf (if applicable)
-6. .dockerignore
-
-For each file, use this format:
-\`\`\`yaml
-// filepath: .github/workflows/ci.yml
-[complete file content]
-\`\`\``;
-        },
-      },
-    ];
+  private createAgent(name: string, maxTokens: number) {
+    return this.registry.create(
+      name,
+      this.projectInfo,
+      { maxTokens },
+      this.configManager.getFeedback(name),
+    );
   }
 
-  private truncate(text: string, maxChars: number): string {
-    if (text.length <= maxChars) return text;
-    return text.slice(0, maxChars) + '\n... [truncated for token efficiency]';
+  private stageHeader(step: number, total: number, icon: string, name: string, description: string): void {
+    console.log(chalk.bold(`  ${icon} Step ${step}/${total}: ${name}`));
+    console.log(chalk.dim(`  ${description}`));
   }
 
-  private extractJSON(raw: string): Record<string, unknown> | null {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      // Try code block
-      const match = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-      if (match) {
-        try { return JSON.parse(match[1]); } catch { /* fall through */ }
-      }
-      // Try finding JSON object
-      const objMatch = raw.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        try { return JSON.parse(objMatch[0]); } catch { /* fall through */ }
-      }
-      return null;
+  private displayChecks(checks: ValidationCheck[]): void {
+    for (const check of checks) {
+      const icon = check.status === 'pass' ? chalk.green(ICON.pass)
+        : check.status === 'fail' ? chalk.red(ICON.fail)
+        : chalk.dim(ICON.skip);
+      const msg = check.message ? chalk.dim(` — ${check.message.split('\n')[0]}`) : '';
+      console.log(`  ${icon} ${check.name}${msg}`);
     }
   }
 
-  private extractFilesFromCodeBlocks(raw: string): GeneratedFile[] {
-    const files: GeneratedFile[] = [];
-    // Match code blocks with filepath comments
-    const pattern = /```[\w]*\s*\n\s*\/\/\s*(?:filepath|file|path):\s*(.+?)\n([\s\S]*?)```/g;
-    let match;
-
-    while ((match = pattern.exec(raw)) !== null) {
-      const filePath = match[1].trim();
-      const content = match[2].trim();
-      if (filePath && content) {
-        files.push({ path: filePath, content });
-      }
-    }
-
-    return files;
+  private mergeFiles(existing: GeneratedFile[], updated: GeneratedFile[]): GeneratedFile[] {
+    const map = new Map<string, GeneratedFile>();
+    for (const f of existing) map.set(f.path, f);
+    for (const f of updated) map.set(f.path, f); // Updated files override
+    return Array.from(map.values());
   }
 
   private deduplicateFiles(files: GeneratedFile[]): GeneratedFile[] {
     const map = new Map<string, GeneratedFile>();
     for (const file of files) {
-      map.set(file.path, file); // Later entries override earlier ones
+      map.set(file.path, file);
     }
     return Array.from(map.values());
+  }
+
+  private extractSetupSteps(plan: string): string[] {
+    // Try to find setup steps in the plan
+    const steps: string[] = [];
+    const lines = plan.split('\n');
+    let inSteps = false;
+
+    for (const line of lines) {
+      if (/setup|getting started|run/i.test(line) && /:/i.test(line)) {
+        inSteps = true;
+        continue;
+      }
+      if (inSteps && /^\s*[-\d]/.test(line)) {
+        steps.push(line.trim().replace(/^[-\d.]+\s*/, ''));
+      } else if (inSteps && line.trim() === '') {
+        if (steps.length > 0) break;
+      }
+    }
+
+    return steps;
+  }
+
+  private fmtTime(ms: number): string {
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
+
+  private errMsg(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+  }
+
+  private emptyResult(reason: string): PipelineResult {
+    console.log(chalk.red(`  Pipeline aborted: ${reason}`));
+    return {
+      files: [],
+      setupSteps: [],
+      projectName: 'my-app',
+      totalTokens: 0,
+      totalDuration: 0,
+      stagesCompleted: 0,
+      validationPassed: false,
+      fixIterations: 0,
+    };
   }
 }
