@@ -1,6 +1,6 @@
 {
   "name": "dev-crew",
-  "version": "5.1.0",
+  "version": "5.1.1",
   "description": "Build and launch startups from a single prompt. 40 AI agents — app builder, solution architect, marketing, pitch deck, payments, auth, SEO, launch checklist. Free, works on Claude Code.",
   "type": "module",
   "main": "dist/index.js",

@@ -31,7 +31,12 @@ interface Platform {
   icon: string;
 }
 
-const PLATFORMS: Record<string, Platform> = {
+interface PlatformInstall {
+  npm: string;
+  note?: string;
+}
+
+const PLATFORMS: Record<string, Platform & { install: PlatformInstall }> = {
   vercel: {
     name: 'Vercel',
     cli: 'vercel',
@@ -39,6 +44,7 @@ const PLATFORMS: Record<string, Platform> = {
     deployCmd: 'vercel',
     prodFlag: '--prod',
     icon: '\u{25B2}',
+    install: { npm: 'vercel' },
   },
   netlify: {
     name: 'Netlify',
@@ -47,6 +53,7 @@ const PLATFORMS: Record<string, Platform> = {
     deployCmd: 'netlify deploy',
     prodFlag: '--prod',
     icon: '\u{1F310}',
+    install: { npm: 'netlify-cli' },
   },
   railway: {
     name: 'Railway',
@@ -55,6 +62,7 @@ const PLATFORMS: Record<string, Platform> = {
     deployCmd: 'railway up',
     prodFlag: '',
     icon: '\u{1F682}',
+    install: { npm: '@railway/cli' },
   },
 };
 
@@ -120,21 +128,22 @@ export async function deployCommand(questionOrPlatform?: string, options: Deploy
   if (cliInstalled) {
     console.log(chalk.green(`  \u{2714} ${platform.cli} CLI — installed`));
   } else {
+    const installPkg = platform.install.npm;
     console.log(chalk.red(`  \u{2716} ${platform.cli} CLI — not installed`));
     console.log();
     console.log(chalk.dim(`  Install it:`));
-    console.log(chalk.cyan(`    npm i -g ${platform.cli}`));
+    console.log(chalk.cyan(`    npm i -g ${installPkg}`));
     console.log();
 
     // Offer to install
-    const install = await actionLayer.confirm(`  Install ${platform.cli} now?`);
-    if (install) {
+    const doInstall = await actionLayer.confirm(`  Install ${installPkg} now?`);
+    if (doInstall) {
       try {
-        console.log(chalk.dim(`  Installing ${platform.cli}...`));
-        execSync(`npm i -g ${platform.cli}`, { stdio: 'pipe', timeout: 60000 });
+        console.log(chalk.dim(`  Installing ${installPkg}...`));
+        execSync(`npm i -g ${installPkg}`, { stdio: 'inherit', timeout: 120000 });
         console.log(chalk.green(`  \u{2714} ${platform.cli} installed`));
       } catch {
-        console.log(chalk.red(`  Failed to install. Install manually: npm i -g ${platform.cli}`));
+        console.log(chalk.red(`  Failed to install. Try manually: sudo npm i -g ${installPkg}`));
         return;
       }
     } else {
