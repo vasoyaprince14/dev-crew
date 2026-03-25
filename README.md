@@ -74,17 +74,42 @@ dev-crew create "chat app" --output ./my-chat-app --no-install
 
 ## What Makes Dev-Crew Different
 
+### Code Graph Intelligence (v6)
+
+Dev-Crew builds a **structural code graph** of your project — extracting functions, classes, imports, and call relationships across 6 languages. When you review a file, it uses **blast-radius analysis** (BFS traversal) to find only the files impacted by your changes:
+
+```bash
+# In interactive mode:
+❯ /graph @src/auth.ts     # See what code is affected by changes to auth.ts
+```
+
+```
+  Graph: 142 files · 847 symbols · 1,203 edges
+
+  Blast Radius for 1 file(s):
+  Changed: 12 symbols
+  Impacted: 34 symbols in 8 files
+
+  ★ src/auth.ts (12 symbols)
+  → src/middleware/auth-guard.ts (6 symbols)
+  → src/routes/user.ts (4 symbols)
+  → tests/auth.test.ts (8 symbols)
+```
+
+The AI receives only these 8 files instead of your entire codebase — **massive token reduction**.
+
 ### Real Local Analysis (Not Just AI)
 
 Dev-Crew runs **real tools before calling the AI**. When you run `dev-crew review`, it:
 
-1. **Runs TypeScript compiler** (`tsc --noEmit`) and collects real type errors
-2. **Runs ESLint** (if configured) and collects real lint violations
-3. **Pattern-scans** for hardcoded secrets, `eval()`, XSS risks, TODO comments
-4. **Resolves imports** automatically — reviews related files, not just the one you pointed at
-5. **Then sends everything to the AI** with real findings as context
+1. **Builds a code graph** — extracts functions, classes, calls, imports via regex-based AST parsing
+2. **Computes blast radius** — BFS finds all files impacted by your changes
+3. **Runs TypeScript compiler** (`tsc --noEmit`) and collects real type errors
+4. **Runs ESLint** (if configured) and collects real lint violations
+5. **Pattern-scans** for hardcoded secrets, `eval()`, XSS risks, TODO comments
+6. **Then sends only impacted files + real findings to the AI**
 
-The AI doesn't guess about type errors — it sees the actual compiler output.
+The AI doesn't guess about type errors — it sees the actual compiler output. And it only sees files that matter.
 
 ### Diff-Based Review
 
@@ -101,21 +126,28 @@ This is dramatically more useful than reviewing whole files. The AI focuses on w
 ❯ /analyze @src/   # Runs tsc + eslint + pattern scan — zero AI, instant results
 ```
 
+### Security Built In
+
+- **Input sanitizer** blocks 8 prompt injection patterns in user feedback
+- **Simulation mode transparency** — all simulated responses are clearly tagged
+- **Pattern scanner** detects hardcoded secrets, `eval()`, XSS, SQL injection patterns
+
 ### How It Works (Honestly)
 
 Dev-Crew is a **context-aware prompt router** built on top of Claude Code. Each "agent" is a specialized system prompt + local tooling:
 
 | What's Real | What's a Prompt |
 |---|---|
-| TypeScript type checking (tsc) | Security audit instructions |
-| ESLint integration | Review rubric and severity rules |
-| Pattern scanning (secrets, XSS) | Architecture guidance prompts |
-| Import graph resolution | Test generation templates |
-| Git diff extraction | DevOps/deployment prompts |
-| Project auto-detection | Business analysis prompts |
-| App builder pipeline (6 stages) | Mobile dev review prompts |
+| Code graph + blast radius analysis | Security audit instructions |
+| TypeScript type checking (tsc) | Review rubric and severity rules |
+| ESLint integration | Architecture guidance prompts |
+| Pattern scanning (secrets, XSS) | Test generation templates |
+| Import graph resolution | DevOps/deployment prompts |
+| Git diff extraction | Business analysis prompts |
+| Project auto-detection (6 languages) | Mobile dev review prompts |
+| App builder pipeline (6 stages) | Startup launch prompts |
 
-The value is in the **local analysis + context gathering + structured prompts** — not in 40 separate AI models.
+The value is in the **code graph + local analysis + smart context selection** — not in 40 separate AI models.
 
 ### Why Use It
 
@@ -277,13 +309,16 @@ dev-crew i       # shorthand
 |---|---|
 | `/help` | Show all commands and usage examples |
 | `/agents` | List all 40 agents with descriptions |
-| `/clear` | Clear screen |
+| `/graph [file]` | **Show code graph & blast radius analysis** |
+| `/analyze [file]` | **Run local static analysis (tsc, eslint, patterns) — zero AI** |
+| `/diff-review` | **AI review of only your uncommitted changes** |
 | `/diff` | Show recent git changes |
 | `/provider <name>` | Switch AI provider |
 | `/project` | Show detected project info |
 | `/doctor` | Check setup and providers |
 | `/tokens` | Session token usage stats |
 | `/feedback <agent> <msg>` | Teach an agent your preferences |
+| `/verbose` | Toggle verbose debug output |
 | `/export [file]` | Save last response to file |
 | `/quit` | Exit (or Ctrl+C twice) |
 
@@ -567,7 +602,7 @@ dev-crew config set settings.max_tokens_per_request 16000
 
 ## 🛠️ Supported Stacks
 
-Dev-Crew auto-detects your technology stack:
+Dev-Crew auto-detects your technology stack (deep-scans subdirectories when root-level detection fails):
 
 | Category | Supported |
 |---|---|
@@ -729,26 +764,31 @@ dev-crew
 ├── bin/dev-crew.ts              # CLI entry point (Commander.js)
 ├── src/
 │   ├── agents/                  # 40 specialized AI agents
-│   │   ├── base-agent.ts        # Shared execution engine
+│   │   ├── base-agent.ts        # Shared execution engine (graph, analysis, hooks)
 │   │   ├── registry.ts          # Agent factory
 │   │   ├── app-creator/         # Full app generation agent
-│   │   └── */agent.ts           # Individual agents
+│   │   └── */agent.ts           # Individual agents with pre/post processing
 │   ├── commands/                # CLI command handlers
 │   │   ├── create.ts            # App builder command
-│   │   └── interactive.ts       # REPL mode
+│   │   └── interactive.ts       # REPL mode (/graph, /analyze, /diff-review)
 │   ├── pipelines/               # Multi-agent orchestration
 │   │   └── create-pipeline.ts   # 6-stage app build pipeline
 │   ├── core/
-│   │   ├── provider-bridge.ts   # Multi-provider abstraction
-│   │   ├── discovery.ts         # Interactive Q&A for app builder
-│   │   ├── file-writer.ts       # Safe file writing utility
+│   │   ├── code-graph.ts        # ★ Structural code graph + blast radius (BFS)
+│   │   ├── static-analyzer.ts   # ★ Real tsc + eslint + pattern scanning
+│   │   ├── diff-context.ts      # ★ Git diff extraction for focused review
+│   │   ├── input-sanitizer.ts   # ★ Prompt injection defense
+│   │   ├── project-cache.ts     # ★ 5-minute project detection cache
+│   │   ├── provider-bridge.ts   # Multi-provider abstraction (stdin piping)
+│   │   ├── context-engine.ts    # Smart context gathering (comment stripping)
 │   │   ├── nlp-router.ts        # Natural language → agent routing
-│   │   ├── context-engine.ts    # Smart context gathering
-│   │   └── project-detector.ts  # Stack auto-detection
+│   │   └── project-detector.ts  # Stack auto-detection (6 languages, deep scan)
 │   ├── features/                # Debt tracker, patterns, analytics
+│   ├── utils/                   # Logger, errors, file reader, git utils
 │   └── types/                   # TypeScript interfaces
+├── tests/                       # 100 tests across 15 test files (vitest)
 ├── .github/workflows/           # CI + npm stats
-└── tsup.config.ts               # Build config (ESM, Node 18+)
+└── vitest.config.ts             # Test config (v8 coverage)
 ```
 
 ---
@@ -759,19 +799,19 @@ dev-crew
 |---|---|---|---|---|---|
 | Build complete apps from prompt | ✅ | Manual | ❌ | ❌ | ✅ |
 | 40 specialized agents | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Code graph + blast radius** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Real static analysis (tsc/eslint)** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Diff-based review** | ✅ | Manual | ❌ | ❌ | ❌ |
 | Code review with framework context | ✅ | ✅ | Limited | ✅ | ❌ |
 | Security audit (OWASP) | ✅ | Manual | ❌ | ❌ | ❌ |
 | Test generation | ✅ | Manual | ❌ | Limited | ❌ |
 | DevOps/Docker/K8s guidance | ✅ | Manual | ❌ | ❌ | ❌ |
 | Mobile (Flutter/RN/iOS/Android) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| DB schema + migrations | ✅ | ❌ | ❌ | ❌ | Limited |
-| API architecture review | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Multi-provider (5 backends) | ✅ | Claude only | Copilot only | Multiple | Proprietary |
+| Multi-provider (6 backends) | ✅ | Claude only | Copilot only | Multiple | Proprietary |
+| Prompt injection defense | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Works without API key | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Feedback/learning system | ✅ | ❌ | ❌ | ❌ | ❌ |
-| CI/CD integration | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Open source | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Free | **Yes** | Paid | Paid | Paid | Freemium |
+| **100 tests, 0 TS errors** | ✅ | ✅ | N/A | N/A | N/A |
+| Open source & free | **Yes** | ❌ | Paid | Paid | Freemium |
 
 **Dev-Crew is the best free, open-source alternative to v0, Bolt, Lovable, and other AI app builders** — but it runs locally, works on top of Claude Code, and gives you full control over the generated code.
 
@@ -796,14 +836,17 @@ dev-crew    # auto-falls back to simulation
 
 ### "Timeout" errors
 
-For large codebases, target specific files:
+v6.0+ pipes prompts via stdin and scales timeouts automatically, but for very large codebases:
 
 ```bash
-# Instead of reviewing entire src/
+# Target specific files instead of entire directories
 dev-crew review @src/controllers/auth.ts
 
-# In interactive mode
-❯ review @src/services/user.ts
+# Use /graph to see what the blast radius looks like first
+❯ /graph @src/auth.ts
+
+# Use /analyze for instant local-only analysis (no AI, no timeout)
+❯ /analyze @src/
 ```
 
 ### Command not found after install
