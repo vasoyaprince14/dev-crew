@@ -5,6 +5,8 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { AgentRegistry } from '../agents/registry.js';
 import { ProjectDetector } from '../core/project-detector.js';
+import { ProjectCache } from '../core/project-cache.js';
+import type { ProjectInfo } from '../types/config.js';
 import { ProviderBridge } from '../core/provider-bridge.js';
 import { ConfigManager } from '../core/config-manager.js';
 import { TokenOptimizer } from '../core/token-optimizer.js';
@@ -115,7 +117,7 @@ function getFiles(partial: string, max = 20): string[] {
 }
 
 function buildCompleter(agentIds: string[]) {
-  const cmds = ['/help', '/agents', '/clear', '/quit', '/provider', '/diff', '/project', '/doctor', '/tokens', '/feedback', '/export'];
+  const cmds = ['/help', '/agents', '/clear', '/quit', '/provider', '/diff', '/diff-review', '/analyze', '/graph', '/project', '/doctor', '/tokens', '/feedback', '/export', '/verbose'];
   return (line: string): [string[], string] => {
     const trimmed = line.trim();
     if (trimmed.startsWith('/')) {
@@ -168,8 +170,16 @@ export async function interactiveCommand(): Promise<void> {
   const spinner = new Spinner();
   spinner.start('Starting');
 
-  const detector = new ProjectDetector();
-  const projectInfo = await detector.detect();
+  const cache = new ProjectCache();
+  const cached = cache.get();
+  let projectInfo: ProjectInfo;
+  if (cached) {
+    projectInfo = cached;
+  } else {
+    const detector = new ProjectDetector();
+    projectInfo = await detector.detect();
+    cache.set(projectInfo);
+  }
   const bridge = new ProviderBridge();
   const providerInfo = await bridge.autoSelect();
   const configManager = new ConfigManager();
@@ -187,6 +197,7 @@ export async function interactiveCommand(): Promise<void> {
   let lastRaw = '';
   let lastAgent = '';
   let multiLine = '';
+  let verbose = false;
 
   spinner.stop();
 
@@ -198,6 +209,14 @@ export async function interactiveCommand(): Promise<void> {
   console.log(`  ${C.dim}${projectInfo.name}${C.reset} ${C.dim}(${stack})${C.reset}${branch ? `  ${C.dim}on${C.reset} ${C.magenta}${branch}${C.reset}` : ''}`);
   console.log(`  ${C.dim}${providerInfo.name} · ${agentList.length} agents · /help for commands${C.reset}`);
   console.log();
+
+  // Simulation mode warning
+  if (bridge.isSimulation()) {
+    console.log(`  ${C.yellow}${C.bold}⚠  SIMULATION MODE${C.reset}${C.yellow} — No AI provider detected.${C.reset}`);
+    console.log(`  ${C.yellow}   Output below is example data, not real analysis.${C.reset}`);
+    console.log(`  ${C.yellow}   Run 'dev-crew doctor' for setup help.${C.reset}`);
+    console.log();
+  }
 
   // Readline
   const rl = readline.createInterface({
@@ -259,7 +278,11 @@ export async function interactiveCommand(): Promise<void> {
             ['/doctor', 'Check setup'],
             ['/tokens', 'Session stats'],
             ['/feedback <agent> <msg>', 'Teach an agent'],
+            ['/diff-review', 'AI review of uncommitted changes'],
+            ['/analyze [file]', 'Run local static analysis (tsc, eslint, patterns)'],
+            ['/graph [file]', 'Show code graph & blast radius analysis'],
             ['/export [file]', 'Save last result'],
+            ['/verbose', 'Toggle verbose debug output'],
             ['/quit', 'Exit'],
           ];
           for (const [c, d] of helpCmds) {
@@ -391,6 +414,149 @@ export async function interactiveCommand(): Promise<void> {
           return;
         }
 
+        case '/diff-review': {
+          // Review uncommitted changes with AI — much more useful than reviewing full files
+          try {
+            const { DiffContext } = await import('../core/diff-context.js');
+            const dc = new DiffContext();
+            const hunks = dc.getUncommittedDiff();
+            if (hunks.length === 0) {
+              console.log(`  ${C.dim}No uncommitted changes to review${C.reset}`);
+              return;
+            }
+            console.log(`  ${C.dim}Found ${hunks.length} changed files — sending to review agent...${C.reset}`);
+            console.log();
+            spinner.start('review');
+            const changedFiles = hunks.map(h => h.file);
+            const feedback = configManager.getFeedback('review');
+            const agent = registry.create('review', projectInfo, undefined, feedback);
+            if (!agent) { spinner.stop(); console.log(`  ${C.red}Review agent not found${C.reset}`); return; }
+            const t0 = Date.now();
+            const diffPrompt = dc.formatForPrompt(hunks);
+            const result = await agent.execute({
+              query: 'Review ONLY the changes shown in the diff below. Focus on bugs, security issues, and code quality in the CHANGED lines.',
+              context: diffPrompt,
+              files: changedFiles,
+              streaming: true,
+              onStream: (chunk: string) => {
+                spinner.stop();
+                try { process.stdout.write(chunk); } catch { /* stdout closed */ }
+              },
+            });
+            const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+            const tokens = (result.tokensUsed || 0) + optimizer.estimate(result.raw);
+            console.log();
+            const simTag = result.simulated ? ' [simulated]' : '';
+            console.log(`  ${C.dim}diff-review · ${tokens.toLocaleString()} tokens · ${elapsed}s${simTag}${C.reset}`);
+            console.log();
+            commands++;
+            totalTokens += tokens;
+            lastRaw = result.raw;
+            lastAgent = 'diff-review';
+          } catch (e) {
+            spinner.stop();
+            console.log(`  ${C.red}${e instanceof Error ? e.message : e}${C.reset}`);
+          }
+          return;
+        }
+
+        case '/analyze': {
+          // Run local static analysis — real tool output, zero AI
+          try {
+            const { StaticAnalyzer } = await import('../core/static-analyzer.js');
+            const sa = new StaticAnalyzer();
+            const targetFiles = args
+              ? [args.replace(/^@/, '')]
+              : (() => { try { return execSync('git diff --name-only HEAD 2>/dev/null', { encoding: 'utf-8' }).split('\n').filter(Boolean); } catch { return []; } })();
+
+            if (targetFiles.length === 0) {
+              console.log(`  ${C.dim}No files to analyze. Use /analyze @path/to/file${C.reset}`);
+              return;
+            }
+            console.log(`  ${C.dim}Analyzing ${targetFiles.length} files locally (tsc, eslint, patterns)...${C.reset}`);
+            const findings = sa.analyze(targetFiles);
+            if (findings.length === 0) {
+              console.log(`  ${C.green}✓${C.reset} ${C.dim}No issues found${C.reset}`);
+            } else {
+              console.log();
+              const errors = findings.filter(f => f.type === 'error');
+              const warns = findings.filter(f => f.type === 'warning');
+              const infos = findings.filter(f => f.type === 'info');
+              for (const f of findings.slice(0, 40)) {
+                const icon = f.type === 'error' ? `${C.red}●${C.reset}` : f.type === 'warning' ? `${C.yellow}●${C.reset}` : `${C.blue}●${C.reset}`;
+                const loc = f.line ? `${f.file}:${f.line}` : f.file;
+                console.log(`  ${icon} ${C.dim}[${f.source}]${C.reset} ${C.dim}${loc}${C.reset} — ${f.message}`);
+              }
+              if (findings.length > 40) console.log(`  ${C.dim}... and ${findings.length - 40} more${C.reset}`);
+              console.log();
+              console.log(`  ${C.dim}${errors.length} errors · ${warns.length} warnings · ${infos.length} info${C.reset}`);
+            }
+            console.log();
+          } catch (e) {
+            console.log(`  ${C.red}${e instanceof Error ? e.message : e}${C.reset}`);
+          }
+          return;
+        }
+
+        case '/graph': {
+          // Show code graph structure and blast radius
+          try {
+            const { CodeGraph } = await import('../core/code-graph.js');
+            const cg = new CodeGraph();
+            const targetFiles = args
+              ? [args.replace(/^@/, '')]
+              : (() => { try { return execSync('git diff --name-only HEAD 2>/dev/null', { encoding: 'utf-8' }).split('\n').filter(Boolean); } catch { return []; } })();
+
+            console.log(`  ${C.dim}Building code graph...${C.reset}`);
+            cg.buildFromDirectory(process.cwd(), 500);
+            const stats = cg.getStats();
+            console.log(`  ${C.cyan}Graph:${C.reset} ${stats.files} files · ${stats.nodes} symbols · ${stats.edges} edges`);
+            console.log();
+
+            if (targetFiles.length > 0) {
+              // Show blast radius for specified/changed files
+              const blast = cg.getBlastRadius(targetFiles, 2, 200);
+              console.log(`  ${C.bold}Blast Radius${C.reset} for ${targetFiles.length} file(s):`);
+              console.log(`  ${C.dim}Changed: ${blast.changedNodes.length} symbols${C.reset}`);
+              console.log(`  ${C.dim}Impacted: ${blast.impactedNodes.length} symbols in ${blast.impactedFiles.length} files${C.reset}`);
+              console.log();
+
+              // Show impacted files
+              for (const file of blast.impactedFiles.slice(0, 15)) {
+                const rel = path.relative(process.cwd(), file);
+                const nodes = blast.impactedNodes.filter(n => n.file === file);
+                const isChanged = targetFiles.some(t => path.resolve(t) === file);
+                const icon = isChanged ? `${C.yellow}★${C.reset}` : `${C.blue}→${C.reset}`;
+                console.log(`  ${icon} ${rel} ${C.dim}(${nodes.length} symbols)${C.reset}`);
+              }
+              if (blast.impactedFiles.length > 15) {
+                console.log(`  ${C.dim}... and ${blast.impactedFiles.length - 15} more${C.reset}`);
+              }
+
+              // Show smart context recommendation
+              const smart = cg.getSmartContext(targetFiles, 8);
+              console.log();
+              console.log(`  ${C.green}Recommended context${C.reset} (${smart.length} files):`);
+              for (const f of smart) {
+                console.log(`  ${C.dim}  ${f}${C.reset}`);
+              }
+            } else {
+              // No files — show file structure summary
+              console.log(`  ${C.dim}Tip: /graph @file to see blast radius for a specific file${C.reset}`);
+              console.log(`  ${C.dim}Tip: Change files with git, then /graph to see impact${C.reset}`);
+            }
+            console.log();
+          } catch (e) {
+            console.log(`  ${C.red}${e instanceof Error ? e.message : e}${C.reset}`);
+          }
+          return;
+        }
+
+        case '/verbose':
+          verbose = !verbose;
+          console.log(`  ${C.dim}Verbose mode: ${verbose ? 'on' : 'off'}${C.reset}`);
+          return;
+
         case '/quit': case '/q': case '/exit':
           const mins = ((Date.now() - sessionStart) / 60000).toFixed(0);
           console.log();
@@ -464,7 +630,8 @@ export async function interactiveCommand(): Promise<void> {
       }
 
       // Minimal footer
-      console.log(`  ${C.dim}${parsed.agentId} · ${tokens.toLocaleString()} tokens · ${elapsed}s${C.reset}`);
+      const simTag = result.simulated ? ' [simulated]' : '';
+      console.log(`  ${C.dim}${parsed.agentId} · ${tokens.toLocaleString()} tokens · ${elapsed}s${simTag}${C.reset}`);
       console.log();
 
       // Track

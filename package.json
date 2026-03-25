@@ -1,6 +1,6 @@
 {
   "name": "dev-crew",
-  "version": "5.1.1",
+  "version": "6.0.0",
   "description": "Build and launch startups from a single prompt. 40 AI agents — app builder, solution architect, marketing, pitch deck, payments, auth, SEO, launch checklist. Free, works on Claude Code.",
   "type": "module",
   "main": "dist/index.js",
@@ -156,6 +156,10 @@
     "url": "https://github.com/vasoyaprince14/dev-crew/issues"
   },
   "homepage": "https://github.com/vasoyaprince14/dev-crew#readme",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/vasoyaprince14"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
@@ -177,6 +181,6 @@
     "@types/node": "^25.5.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^2.1.9"
   }
 }

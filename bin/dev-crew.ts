@@ -218,7 +218,7 @@ function showBrandedHelp() {
 
   // ── Configuration ──
   printSection(dim('Configuration'), [
-    ['agents list', 'List all 24 agents'],
+    ['agents list', 'List all agents'],
     ['config show|set|get', 'Manage configuration'],
     ['feedback <agent> <msg>', 'Teach agents your preferences'],
     ['patterns', 'View learned patterns'],
@@ -248,6 +248,7 @@ program
   .name('dev-crew')
   .description('AI-powered developer crew built by Prince Vasoya')
   .version(pkg.version)
+  .option('--verbose', 'Enable verbose debug output')
   .configureHelp({ showGlobalOptions: false })
   .helpOption('-h, --help', 'Display help')
   .addHelpCommand(false);

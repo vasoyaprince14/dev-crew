@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import type { DevCrewConfig } from '../types/config.js';
+import { InputSanitizer } from './input-sanitizer.js';
+import { ConfigError } from '../utils/errors.js';
 
 const PROJECT_CONFIG_DIR = '.dev-crew';
 const PROJECT_CONFIG_FILE = 'config.yml';
@@ -43,8 +45,8 @@ export class ConfigManager {
     if (fs.existsSync(this.globalConfigPath)) {
       try {
         globalConfig = (yaml.load(fs.readFileSync(this.globalConfigPath, 'utf-8')) as DevCrewConfig) || {};
-      } catch {
-        // invalid yaml
+      } catch (err) {
+        throw new ConfigError(`Invalid global config YAML: ${(err as Error).message}`, `Check ${this.globalConfigPath}`);
       }
     }
 
@@ -52,8 +54,8 @@ export class ConfigManager {
     if (fs.existsSync(this.configPath)) {
       try {
         projectConfig = (yaml.load(fs.readFileSync(this.configPath, 'utf-8')) as DevCrewConfig) || {};
-      } catch {
-        // invalid yaml
+      } catch (err) {
+        throw new ConfigError(`Invalid project config YAML: ${(err as Error).message}`, `Check ${this.configPath}`);
       }
     }
 
@@ -108,6 +110,7 @@ export class ConfigManager {
 
   addFeedback(agentName: string, message: string): void {
     const config = this.load();
+    message = InputSanitizer.sanitizeFeedback(message);
     if (!config.feedback) config.feedback = {};
     if (!config.feedback[agentName]) config.feedback[agentName] = [];
     if (!config.feedback[agentName].includes(message)) {

@@ -1,6 +1,7 @@
 import { spawn, execSync } from 'node:child_process';
 import { TokenOptimizer } from './token-optimizer.js';
 import { Logger } from '../utils/logger.js';
+import { ProviderError } from '../utils/errors.js';
 import type { ClaudeOptions, ClaudeResponse } from '../types/response.js';
 
 // ---------------------------------------------------------------------------
@@ -108,8 +109,15 @@ const SIMULATION_PROVIDER: ProviderInfo = {
 function generateSimulationResponse(prompt: string): string {
   const lower = prompt.toLowerCase();
 
+  const simFields = {
+    _simulation_notice: '[SIMULATION] This is example data, not real AI analysis. Run \'dev-crew doctor\' for setup instructions.',
+    simulated: true,
+    _install_help: "Run 'dev-crew doctor' for setup instructions",
+  };
+
   if (lower.includes('review')) {
     return JSON.stringify({
+      ...simFields,
       summary: 'Code review complete (simulated)',
       issues: [
         { severity: 'warning', message: 'Consider adding error handling for edge cases', line: 12 },
@@ -125,6 +133,7 @@ function generateSimulationResponse(prompt: string): string {
 
   if (lower.includes('debug')) {
     return JSON.stringify({
+      ...simFields,
       diagnosis: 'Potential null reference detected (simulated)',
       rootCause: 'The variable may be undefined when accessed outside the conditional block',
       suggestedFix: 'Add a null check before accessing the property',
@@ -134,6 +143,7 @@ function generateSimulationResponse(prompt: string): string {
 
   if (lower.includes('test')) {
     return JSON.stringify({
+      ...simFields,
       tests: [
         { name: 'should handle valid input', type: 'unit', status: 'generated' },
         { name: 'should throw on invalid input', type: 'unit', status: 'generated' },
@@ -146,6 +156,7 @@ function generateSimulationResponse(prompt: string): string {
 
   if (lower.includes('refactor')) {
     return JSON.stringify({
+      ...simFields,
       suggestions: [
         'Extract method: move lines 10-25 into a dedicated helper',
         'Replace magic number with named constant',
@@ -157,6 +168,7 @@ function generateSimulationResponse(prompt: string): string {
 
   if (lower.includes('explain') || lower.includes('document')) {
     return JSON.stringify({
+      ...simFields,
       explanation: 'This module handles request routing and middleware composition (simulated)',
       keyComponents: [
         'Router – maps URL patterns to handler functions',
@@ -167,6 +179,7 @@ function generateSimulationResponse(prompt: string): string {
   }
 
   return JSON.stringify({
+    ...simFields,
     response: 'Simulated AI response',
     note: 'Install Claude Code, Aider, Ollama, or another AI provider to get real responses.',
     prompt_received: prompt.slice(0, 120),
@@ -325,6 +338,10 @@ export class ProviderBridge {
   // Info
   // -----------------------------------------------------------------------
 
+  isSimulation(): boolean {
+    return this.useSimulation;
+  }
+
   getProviderInfo(): ProviderInfo {
     if (this.useDirectAPI) {
       return { id: 'claude-api', name: 'Claude API (Direct)', status: 'available', color: '#d97706' };
@@ -469,15 +486,15 @@ export class ProviderBridge {
       // API errors — give helpful messages
       const msg = err?.message || String(err);
       if (msg.includes('401') || msg.includes('authentication')) {
-        throw new Error('Invalid ANTHROPIC_API_KEY. Check your key at console.anthropic.com');
+        throw new ProviderError('Invalid ANTHROPIC_API_KEY', 'Check your key at console.anthropic.com');
       }
       if (msg.includes('429') || msg.includes('rate')) {
-        throw new Error('Rate limited by Claude API. Wait a moment and try again.');
+        throw new ProviderError('Rate limited by Claude API', 'Wait a moment and try again.');
       }
       if (msg.includes('529') || msg.includes('overloaded')) {
-        throw new Error('Claude API is overloaded. Try again in a few seconds.');
+        throw new ProviderError('Claude API is overloaded', 'Try again in a few seconds.');
       }
-      throw new Error(`Claude API error: ${msg.slice(0, 200)}`);
+      throw new ProviderError(`Claude API error: ${msg.slice(0, 200)}`);
     }
   }
 
@@ -500,10 +517,29 @@ export class ProviderBridge {
       `[${this.currentProvider!.name}] Estimated input tokens: ${estimatedTokens}`,
     );
 
-    const args = this.currentProvider!.buildArgs(optimizedPrompt, options);
     const command = this.currentProvider!.command;
-    const timeoutMs = options.timeout || 120_000;
     const providerName = this.currentProvider!.name;
+
+    // Scale timeout based on prompt size — larger prompts need more time
+    // Base: 120s for small prompts, up to 300s for large ones
+    const baseTimeout = options.timeout || 120_000;
+    const tokenScale = Math.min(estimatedTokens / 2000, 1.5); // up to 1.5x for large prompts
+    const timeoutMs = Math.round(baseTimeout + (baseTimeout * tokenScale));
+
+    // For claude --print: pipe prompt via stdin instead of CLI args to avoid arg length limits
+    const isClaudeCode = command === 'claude';
+    let args: string[];
+    let stdinPrompt: string | null = null;
+
+    if (isClaudeCode) {
+      // Build args WITHOUT the prompt — we'll pipe it via stdin
+      args = ['--print'];
+      if (options.systemPrompt) args.push('--system-prompt', options.systemPrompt);
+      if (options.outputFormat) args.push('--output-format', options.outputFormat);
+      stdinPrompt = optimizedPrompt;
+    } else {
+      args = this.currentProvider!.buildArgs(optimizedPrompt, options);
+    }
 
     return new Promise((resolve, reject) => {
       let finished = false;
@@ -514,7 +550,13 @@ export class ProviderBridge {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      proc.stdin.end();
+      // Pipe prompt via stdin for Claude Code (avoids CLI arg length limits)
+      if (stdinPrompt) {
+        proc.stdin.write(stdinPrompt);
+        proc.stdin.end();
+      } else {
+        proc.stdin.end();
+      }
 
       let stdout = '';
       let stderr = '';
@@ -524,7 +566,7 @@ export class ProviderBridge {
           finished = true;
           try { proc.kill('SIGTERM'); } catch { /* already dead */ }
           setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* ignore */ } }, 5000);
-          reject(new Error(`AI provider "${providerName}" timed out after ${Math.round(timeoutMs / 1000)}s`));
+          reject(new Error(`AI provider "${providerName}" timed out after ${Math.round(timeoutMs / 1000)}s. Try a simpler query or fewer files.`));
         }
       }, timeoutMs);
 
@@ -605,6 +647,7 @@ export class ProviderBridge {
         content,
         duration,
         tokensUsed: this.optimizer.estimate(content),
+        simulated: true,
       });
     });
   }

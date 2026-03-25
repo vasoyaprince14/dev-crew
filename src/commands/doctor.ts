@@ -18,8 +18,11 @@ export async function doctorCommand(): Promise<void> {
       logger.success(`AI Provider: ${p.name} (available)`);
     }
   } else {
-    logger.warn('No AI providers found. Simulation mode available.');
-    logger.info('  Install one: npm install -g @anthropic-ai/claude-code');
+    logger.warn('No AI providers found. Install one:');
+    logger.info('  Claude Code:  npm install -g @anthropic-ai/claude-code');
+    logger.info('  Aider:        pip install aider-chat');
+    logger.info('  Ollama:       https://ollama.com/download');
+    logger.info('  Direct API:   Set ANTHROPIC_API_KEY environment variable');
   }
   const installed = available.length > 0;
 

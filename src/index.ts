@@ -11,6 +11,11 @@ export { ResponseParser } from './core/response-parser.js';
 export { ConfigManager } from './core/config-manager.js';
 export { ActionLayer } from './core/action-layer.js';
 export { DependencyGraph } from './core/dependency-graph.js';
+export { CodeGraph } from './core/code-graph.js';
+export { DiffContext } from './core/diff-context.js';
+export { StaticAnalyzer } from './core/static-analyzer.js';
+export { InputSanitizer } from './core/input-sanitizer.js';
+export { ProjectCache } from './core/project-cache.js';
 export { GitIntelligence } from './core/git-intelligence.js';
 export { QualityScorer } from './core/quality-scorer.js';
 export { ProviderBridge } from './core/provider-bridge.js';
@@ -24,6 +29,7 @@ export { BaseAgent } from './agents/base-agent.js';
 export { AgentRegistry } from './agents/registry.js';
 
 // Features
+export { DevCrewError, ProviderError, ConfigError } from './utils/errors.js';
 export { DebtTracker } from './features/debt-tracker.js';
 export { PatternLibrary } from './features/pattern-library.js';
 export { Analytics } from './features/analytics.js';

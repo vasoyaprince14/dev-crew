@@ -27,6 +27,7 @@ export interface AgentResult {
   tokensUsed?: number;
   duration: number;
   agent: string;
+  simulated?: boolean;
   tokenReport?: {
     withoutDevCrew: number;
     withDevCrew: number;

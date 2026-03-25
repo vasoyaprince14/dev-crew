@@ -81,7 +81,7 @@ export class ProjectDetector {
     if (fs.existsSync(path.join(root, 'go.mod'))) return 'go';
     if (fs.existsSync(path.join(root, 'Cargo.toml'))) return 'rust';
     if (fs.existsSync(path.join(root, 'pom.xml')) || fs.existsSync(path.join(root, 'build.gradle'))) return 'java';
-    // Last resort: check for common files
+    // Check root-level files
     try {
       const files = fs.readdirSync(root);
       if (files.some(f => f.endsWith('.py'))) return 'python';
@@ -91,7 +91,41 @@ export class ProjectDetector {
       if (files.some(f => f.endsWith('.ts') || f.endsWith('.tsx'))) return 'typescript';
       if (files.some(f => f.endsWith('.js') || f.endsWith('.jsx'))) return 'javascript';
     } catch { /* skip */ }
-    return 'unknown';
+
+    // Deep scan: check src/, app/, lib/, and other common subdirectories
+    const scanDirs = ['src', 'app', 'lib', 'cmd', 'pkg', 'internal', 'server', 'client', 'api', 'backend', 'frontend'];
+    const extCounts: Record<string, number> = {};
+    for (const dir of scanDirs) {
+      const dirPath = path.join(root, dir);
+      if (!fs.existsSync(dirPath)) continue;
+      try {
+        const entries = fs.readdirSync(dirPath, { recursive: true }) as string[];
+        for (const entry of entries) {
+          const ext = path.extname(String(entry)).toLowerCase();
+          if (ext) extCounts[ext] = (extCounts[ext] || 0) + 1;
+        }
+      } catch { /* skip */ }
+    }
+
+    // Pick language with most files
+    const langMap: [string[], ProjectInfo['language']][] = [
+      [['.ts', '.tsx'], 'typescript'],
+      [['.js', '.jsx', '.mjs'], 'javascript'],
+      [['.py'], 'python'],
+      [['.go'], 'go'],
+      [['.rs'], 'rust'],
+      [['.java', '.kt'], 'java'],
+    ];
+    let bestLang: ProjectInfo['language'] = 'unknown';
+    let bestCount = 0;
+    for (const [exts, lang] of langMap) {
+      const count = exts.reduce((sum, ext) => sum + (extCounts[ext] || 0), 0);
+      if (count > bestCount) {
+        bestCount = count;
+        bestLang = lang;
+      }
+    }
+    return bestLang;
   }
 
   private detectFramework(deps: Record<string, string>, devDeps: Record<string, string>): string | null {

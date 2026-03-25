@@ -2,6 +2,7 @@ export interface ClaudeResponse {
   content: string;
   tokensUsed?: number;
   duration: number;
+  simulated?: boolean;
 }
 
 export interface ClaudeOptions {

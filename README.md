@@ -17,7 +17,7 @@
 <p align="center">
   <a href="#-build-an-app-in-one-command">App Builder</a> &bull;
   <a href="#-quick-start">Quick Start</a> &bull;
-  <a href="#-all-25-agents">All Agents</a> &bull;
+  <a href="#-all-40-agents">All Agents</a> &bull;
   <a href="#-interactive-mode">Interactive Mode</a> &bull;
   <a href="#-complete-guide">Guide</a> &bull;
   <a href="#-multi-provider-support">Providers</a>
@@ -27,7 +27,7 @@
 
 ## What is Dev-Crew?
 
-Dev-Crew is a **free, open-source CLI** that builds complete apps from a single prompt — and gives you **25 specialized AI agents** for every stage of development.
+Dev-Crew is a **free, open-source CLI** that builds complete apps from a single prompt — and gives you **40 specialized AI agents** for every stage of development.
 
 ```bash
 npm install -g dev-crew
@@ -72,17 +72,60 @@ dev-crew create "chat app" --output ./my-chat-app --no-install
 
 ---
 
-## Why Dev-Crew Over Other AI Tools?
+## What Makes Dev-Crew Different
+
+### Real Local Analysis (Not Just AI)
+
+Dev-Crew runs **real tools before calling the AI**. When you run `dev-crew review`, it:
+
+1. **Runs TypeScript compiler** (`tsc --noEmit`) and collects real type errors
+2. **Runs ESLint** (if configured) and collects real lint violations
+3. **Pattern-scans** for hardcoded secrets, `eval()`, XSS risks, TODO comments
+4. **Resolves imports** automatically — reviews related files, not just the one you pointed at
+5. **Then sends everything to the AI** with real findings as context
+
+The AI doesn't guess about type errors — it sees the actual compiler output.
+
+### Diff-Based Review
+
+```bash
+# In interactive mode:
+❯ /diff-review    # Reviews ONLY your uncommitted changes — not entire files
+```
+
+This is dramatically more useful than reviewing whole files. The AI focuses on what you actually changed.
+
+### Local Analysis Without AI
+
+```bash
+❯ /analyze @src/   # Runs tsc + eslint + pattern scan — zero AI, instant results
+```
+
+### How It Works (Honestly)
+
+Dev-Crew is a **context-aware prompt router** built on top of Claude Code. Each "agent" is a specialized system prompt + local tooling:
+
+| What's Real | What's a Prompt |
+|---|---|
+| TypeScript type checking (tsc) | Security audit instructions |
+| ESLint integration | Review rubric and severity rules |
+| Pattern scanning (secrets, XSS) | Architecture guidance prompts |
+| Import graph resolution | Test generation templates |
+| Git diff extraction | DevOps/deployment prompts |
+| Project auto-detection | Business analysis prompts |
+| App builder pipeline (6 stages) | Mobile dev review prompts |
+
+The value is in the **local analysis + context gathering + structured prompts** — not in 40 separate AI models.
+
+### Why Use It
 
 | Problem | Dev-Crew's Answer |
 |---|---|
-| Want to build a full app but don't know where to start | **`dev-crew create`** — describe your app, get production-ready code |
-| Generic AI gives surface-level reviews | **25 domain-expert agents** — security agent knows OWASP, DevOps agent knows Kubernetes |
+| Want to build a full app but don't know where to start | **`dev-crew create`** — describe your app, get runnable project scaffolding |
+| AI reviews miss real type errors | **Local analysis layer** — tsc + eslint output included in AI context |
 | Need to copy-paste code into ChatGPT | **Auto-detects** your framework, DB, ORM and builds context automatically |
-| Locked to one AI provider | **5 providers** — Claude, OpenAI, Copilot, Aider, Ollama + simulation fallback |
-| AI doesn't know your codebase | **Smart context engine** gathers files, schemas, configs, git history |
-| Expensive token usage | **Comment stripping + compression** reduces tokens by 10-30% |
-| Can't try without API keys | **Simulation mode** — works instantly, no setup needed |
+| Review a whole file when you changed 3 lines | **`/diff-review`** — AI reviews only your uncommitted changes |
+| Locked to one AI provider | **6 providers** — Claude, OpenAI, Copilot, Aider, Ollama + simulation |
 | AI forgets your preferences | **Feedback system** — teach agents your rules, they remember across sessions |
 | Want to use in CI/CD | **CI mode** — `dev-crew review src/ --ci` returns exit code 2 on critical issues |
 
@@ -144,7 +187,7 @@ dev-crew ask "how does authentication work in this project?"
 
 ---
 
-## 🤖 All 25 Agents
+## 🤖 All 40 Agents
 
 ### Core Agents
 
@@ -685,7 +728,7 @@ Each prompt generates a **complete, runnable project** — not just boilerplate.
 dev-crew
 ├── bin/dev-crew.ts              # CLI entry point (Commander.js)
 ├── src/
-│   ├── agents/                  # 25 specialized AI agents
+│   ├── agents/                  # 40 specialized AI agents
 │   │   ├── base-agent.ts        # Shared execution engine
 │   │   ├── registry.ts          # Agent factory
 │   │   ├── app-creator/         # Full app generation agent
@@ -715,7 +758,7 @@ dev-crew
 | Feature | Dev-Crew | Claude Code | GitHub Copilot | Cursor | v0 / Bolt |
 |---|---|---|---|---|---|
 | Build complete apps from prompt | ✅ | Manual | ❌ | ❌ | ✅ |
-| 25 specialized agents | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 40 specialized agents | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Code review with framework context | ✅ | ✅ | Limited | ✅ | ❌ |
 | Security audit (OWASP) | ✅ | Manual | ❌ | ❌ | ❌ |
 | Test generation | ✅ | Manual | ❌ | Limited | ❌ |
@@ -784,7 +827,7 @@ Install Dev-Crew (`npm install -g dev-crew`) and run `dev-crew create "describe 
 
 ### What's the best free alternative to v0, Bolt, or Lovable?
 
-Dev-Crew is a free, open-source CLI that generates complete applications from a single prompt — similar to v0, Bolt.new, and Lovable, but runs locally and gives you full control. Unlike those tools, Dev-Crew also includes 25 specialized agents for code review, testing, security auditing, and DevOps.
+Dev-Crew is a free, open-source CLI that generates complete applications from a single prompt — similar to v0, Bolt.new, and Lovable, but runs locally and gives you full control. Unlike those tools, Dev-Crew also includes 40 specialized agents for code review, testing, security auditing, and DevOps.
 
 ### How do I generate a full-stack app from the command line?
 
@@ -797,7 +840,7 @@ Dev-Crew asks clarifying questions, then generates every file — frontend, back
 
 ### Can I use Dev-Crew for vibe coding?
 
-Yes. Dev-Crew is built for vibe coding — describe what you want in plain English and get production-ready code. Use `dev-crew create` for new apps, or use any of the 40 agents in interactive mode for ongoing development.
+Yes. Dev-Crew is built for vibe coding — describe what you want in plain English and get runnable project scaffolding. Use `dev-crew create` for new apps, or use any of the 40 agents in interactive mode for ongoing development.
 
 ### What AI tools does Dev-Crew work with?
 
@@ -814,7 +857,7 @@ dev-crew security src/        # OWASP security audit
 
 ### Is Dev-Crew better than using ChatGPT for coding?
 
-Dev-Crew is purpose-built for software engineering with 25 specialized agents, automatic project context detection, framework-aware analysis, and file-level precision. Instead of copy-pasting code into ChatGPT, Dev-Crew reads your codebase, understands your stack, and gives targeted feedback. It also generates complete apps, runs security audits, creates tests, and integrates with CI/CD.
+Dev-Crew is purpose-built for software engineering with 40 specialized agents, automatic project context detection, framework-aware analysis, and file-level precision. Instead of copy-pasting code into ChatGPT, Dev-Crew reads your codebase, understands your stack, and gives targeted feedback. It also generates complete apps, runs security audits, creates tests, and integrates with CI/CD.
 
 ### How do I scaffold a new project with AI?
 

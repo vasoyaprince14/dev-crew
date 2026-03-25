@@ -15,6 +15,24 @@ export class TestAgent extends BaseAgent {
     return prompt;
   }
 
+  protected preProcess(input: AgentInput): AgentInput {
+    // Add test framework hint if detected
+    const fw = this.projectInfo.testFramework;
+    if (fw) {
+      const hint = `\n## Test Framework\nUse ${fw} for all generated tests.`;
+      return { ...input, context: (input.context || '') + hint };
+    }
+    return input;
+  }
+
+  protected validate(input: AgentInput): string[] {
+    const warnings: string[] = [];
+    if (!input.files?.length && !input.context) {
+      warnings.push('Test generation works best with files — use @path to include files');
+    }
+    return warnings;
+  }
+
   buildPrompt(input: AgentInput): string {
     const parts: string[] = [];
     const testType = (input.testType as string) || 'unit';

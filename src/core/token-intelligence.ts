@@ -149,26 +149,41 @@ export class TokenIntelligence {
   }
 
   formatReport(report: TokenReport): string {
-    const lines = [
-      `${chalk.bold.cyan('Token Intelligence')}`,
+    const hasSavings = report.saved > 0;
+    const title = hasSavings ? 'Token Intelligence' : 'Token Usage';
+
+    const lines: string[] = [
+      `${chalk.bold.cyan(title)}`,
       ``,
-      `Without Dev-Crew:  ~${report.withoutDevCrew.toLocaleString()} tokens`,
-      `With Dev-Crew:     ~${report.withDevCrew.toLocaleString()} tokens`,
-      `${chalk.green.bold(`Saved:             ${report.saved.toLocaleString()} tokens (${report.percentage}% less)`)}`,
-      ``,
-      `How we saved:`,
-      `  File selection (relevant only):  -${report.breakdown.smartFileSelection.toLocaleString()} tokens`,
-      `  Whitespace compression:          -${report.breakdown.contextCompression.toLocaleString()} tokens`,
-      `  Structured system prompt:        -${report.breakdown.systemPromptReuse.toLocaleString()} tokens`,
-      ``,
-      `Session total saved: ${this.sessionStats.totalSaved.toLocaleString()} tokens`,
     ];
+
+    if (hasSavings) {
+      lines.push(
+        `Without Dev-Crew:  ~${report.withoutDevCrew.toLocaleString()} tokens`,
+        `With Dev-Crew:     ~${report.withDevCrew.toLocaleString()} tokens`,
+        `${chalk.green.bold(`Saved:             ${report.saved.toLocaleString()} tokens (${report.percentage}% less)`)}`,
+        ``,
+        `How we saved:`,
+        `  File selection (relevant only):  -${report.breakdown.smartFileSelection.toLocaleString()} tokens`,
+        `  Whitespace compression:          -${report.breakdown.contextCompression.toLocaleString()} tokens`,
+        `  Structured system prompt:        -${report.breakdown.systemPromptReuse.toLocaleString()} tokens`,
+      );
+    } else {
+      lines.push(
+        `Tokens used:  ~${report.withDevCrew.toLocaleString()} tokens`,
+      );
+    }
+
+    lines.push(
+      ``,
+      `Session total ${hasSavings ? 'saved' : 'used'}: ${hasSavings ? this.sessionStats.totalSaved.toLocaleString() : this.sessionStats.totalUsed.toLocaleString()} tokens`,
+    );
 
     return boxen(lines.join('\n'), {
       padding: 1,
       borderStyle: 'round',
       borderColor: 'cyan',
-      title: 'Token Intelligence',
+      title,
       titleAlignment: 'center',
     });
   }

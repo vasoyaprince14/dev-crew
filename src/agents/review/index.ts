@@ -22,6 +22,31 @@ export class ReviewAgent extends BaseAgent {
     return prompt;
   }
 
+  protected postProcess(parsed: ParsedResponse): ParsedResponse {
+    if (parsed.issues && parsed.issues.length > 1) {
+      // Deduplicate same-location issues
+      const seen = new Set<string>();
+      parsed.issues = parsed.issues.filter(issue => {
+        const key = `${issue.file}:${issue.line || 0}:${issue.message.slice(0, 50)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      // Sort by severity (critical first)
+      const order = { critical: 0, warning: 1, info: 2 };
+      parsed.issues.sort((a, b) => (order[a.severity] ?? 2) - (order[b.severity] ?? 2));
+    }
+    return parsed;
+  }
+
+  protected validate(input: AgentInput): string[] {
+    const warnings: string[] = [];
+    if (!input.files?.length && !input.context) {
+      warnings.push('Code review works best with files — use @path to include files');
+    }
+    return warnings;
+  }
+
   buildPrompt(input: AgentInput): string {
     const parts: string[] = [];
 
