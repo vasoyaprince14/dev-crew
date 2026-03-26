@@ -160,7 +160,7 @@ export abstract class BaseAgent {
         // Generate blast radius summary for the AI
         blastRadiusContext = this.codeGraph.formatBlastRadius(input.files!);
 
-        this.logger.debug(`Code graph: ${this.codeGraph.getStats().nodes} nodes, ${this.codeGraph.getStats().edges} edges`);
+        this.logger.debug(`Code graph: ${this.codeGraph.getStats().nodeCount} nodes, ${this.codeGraph.getStats().edgeCount} edges`);
         this.logger.debug(`Blast radius selected ${smartFiles.length} files`);
       } catch (err) {
         this.logger.debug('Code graph failed, falling back to import resolution: ' + (err as Error).message);

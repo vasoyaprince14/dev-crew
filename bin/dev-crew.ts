@@ -75,6 +75,7 @@ import { interactiveCommand } from '../src/commands/interactive.js';
 import { makeAgentCommand } from '../src/commands/agent-command.js';
 import { showcaseCommand } from '../src/commands/showcase.js';
 import { iterateCommand } from '../src/commands/iterate.js';
+import { scanCommand } from '../src/commands/scan.js';
 
 // ---------------------------------------------------------------------------
 // ANSI helpers
@@ -101,7 +102,7 @@ function showBrandedHelp() {
   console.log(cyan(' | |_| |  __/\\ V /| |___| | |  __/\\ V  V /'));
   console.log(cyan(' |____/ \\___| \\_/  \\_____|_|  \\___| \\_/\\_/'));
   console.log();
-  console.log(`  ${bold('Dev-Crew')} ${dim(`v${v}`)}  ${dim('—')} Your AI-Powered Developer Team`);
+  console.log(`  ${bold('Dev-Crew')} ${dim(`v${v}`)}  ${dim('—')} Code Graph Intelligence for Developers`);
   console.log(`  ${dim('by Prince Vasoya')}`);
   console.log();
   console.log(`  ${bold('Usage:')} dev-crew ${dim('[command] [options]')}`);
@@ -111,8 +112,9 @@ function showBrandedHelp() {
   // ── Getting Started ──
   printSection(green('Getting Started'), [
     ['(no command)', 'Start interactive REPL (default)'],
+    ['scan [path]', 'Instant project scan — no AI needed'],
     ['init', 'Initialize Dev-Crew in your project'],
-    ['doctor', 'Check setup and system requirements'],
+    ['doctor', 'Check setup and AI provider status'],
     ['interactive, i', 'Interactive REPL mode'],
   ]);
 
@@ -617,6 +619,12 @@ program
   .command('accessibility [path]')
   .description('WCAG compliance and accessibility audit')
   .action(accessibilityCommand);
+
+// ===== SCAN (zero-AI local analysis) =====
+program
+  .command('scan [path]')
+  .description('Instant project analysis — code graph, hotspots, static checks (no AI needed)')
+  .action(scanCommand);
 
 // ===== SHOWCASE =====
 program

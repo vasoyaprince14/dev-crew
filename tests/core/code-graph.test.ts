@@ -11,9 +11,9 @@ describe('CodeGraph', () => {
         path.resolve('src/core/code-graph.ts'),
       ]);
       const stats = cg.getStats();
-      expect(stats.files).toBeGreaterThanOrEqual(1);
-      expect(stats.nodes).toBeGreaterThan(5); // CodeGraph class + methods
-      expect(stats.edges).toBeGreaterThan(0);
+      expect(stats.fileCount).toBeGreaterThanOrEqual(1);
+      expect(stats.nodeCount).toBeGreaterThan(5); // CodeGraph class + methods
+      expect(stats.edgeCount).toBeGreaterThan(0);
     });
 
     it('extracts class and function nodes', () => {
@@ -32,9 +32,9 @@ describe('CodeGraph', () => {
       const cg = new CodeGraph();
       cg.buildFromDirectory(process.cwd(), 50);
       const stats = cg.getStats();
-      expect(stats.files).toBeGreaterThan(0);
-      expect(stats.files).toBeLessThanOrEqual(50);
-      expect(stats.nodes).toBeGreaterThan(0);
+      expect(stats.fileCount).toBeGreaterThan(0);
+      expect(stats.fileCount).toBeLessThanOrEqual(50);
+      expect(stats.nodeCount).toBeGreaterThan(0);
     });
   });
 

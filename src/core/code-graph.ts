@@ -336,9 +336,32 @@ export class CodeGraph {
   // Stats
   // -----------------------------------------------------------------------
 
-  getStats(): { files: number; nodes: number; edges: number } {
-    const files = new Set([...this.nodes.values()].map(n => n.file)).size;
-    return { files, nodes: this.nodes.size, edges: this.edges.length };
+  getStats(): { fileCount: number; nodeCount: number; edgeCount: number; languages: string[] } {
+    const fileSet = new Set([...this.nodes.values()].map(n => n.file));
+    const langSet = new Set<string>();
+    for (const f of fileSet) {
+      const ext = path.extname(f).toLowerCase();
+      const langMap: Record<string, string> = {
+        '.ts': 'TypeScript', '.tsx': 'TypeScript', '.js': 'JavaScript', '.jsx': 'JavaScript',
+        '.py': 'Python', '.go': 'Go', '.rs': 'Rust', '.java': 'Java', '.kt': 'Kotlin',
+      };
+      if (langMap[ext]) langSet.add(langMap[ext]);
+    }
+    return { fileCount: fileSet.size, nodeCount: this.nodes.size, edgeCount: this.edges.length, languages: [...langSet] };
+  }
+
+  getHotspots(limit = 5): { file: string; connections: number }[] {
+    const fileCounts = new Map<string, number>();
+    for (const edge of this.edges) {
+      const srcNode = this.nodes.get(edge.source);
+      const tgtNode = this.nodes.get(edge.target);
+      if (srcNode) fileCounts.set(srcNode.file, (fileCounts.get(srcNode.file) || 0) + 1);
+      if (tgtNode) fileCounts.set(tgtNode.file, (fileCounts.get(tgtNode.file) || 0) + 1);
+    }
+    return [...fileCounts.entries()]
+      .map(([file, connections]) => ({ file, connections }))
+      .sort((a, b) => b.connections - a.connections)
+      .slice(0, limit);
   }
 
   // -----------------------------------------------------------------------

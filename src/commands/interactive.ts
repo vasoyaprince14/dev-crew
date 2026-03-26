@@ -510,7 +510,7 @@ export async function interactiveCommand(): Promise<void> {
             console.log(`  ${C.dim}Building code graph...${C.reset}`);
             cg.buildFromDirectory(process.cwd(), 500);
             const stats = cg.getStats();
-            console.log(`  ${C.cyan}Graph:${C.reset} ${stats.files} files · ${stats.nodes} symbols · ${stats.edges} edges`);
+            console.log(`  ${C.cyan}Graph:${C.reset} ${stats.fileCount} files · ${stats.nodeCount} symbols · ${stats.edgeCount} edges`);
             console.log();
 
             if (targetFiles.length > 0) {
